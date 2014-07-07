@@ -288,6 +288,29 @@ struct cheat_state
 	int							player_info_list;
 	int							render_player_tags;
 	int							render_vehicle_tags;
+
+	bool antiafk;
+	bool matrun;
+	float checkpoint[3];
+	int playerAimed;
+	bool spawned;
+	bool aimmenu;
+	bool quickmenu;
+	float jobcoord[3];
+	bool armslvl;
+	bool detelvl;
+	float damagedivider;
+	int firingun;
+	char coordsearch[60];
+	char ipcheck[128];
+	bool joinevents;
+	bool hideDialogs;
+	int RealAIMID;
+	int TypeAIMID;
+	float DistanceAIM;
+	bool CurrentAIMstreamed;
+	bool Panic;
+	bool issetwsban;
 };
 
 struct pool

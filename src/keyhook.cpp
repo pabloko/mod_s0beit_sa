@@ -203,6 +203,7 @@ void keyhook_run ( void )
 	}
 }
 
+
 int keyhook_key_down ( int v )
 {
 	if ( key_table[v].consume )

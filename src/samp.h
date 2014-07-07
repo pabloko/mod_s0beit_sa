@@ -318,6 +318,15 @@ struct stAimData
 	BYTE bUnk;
 };
 
+struct stBulletData {
+#pragma pack( 1 )
+	BYTE bHitType;
+	unsigned short iHitID;
+	float fHitOrigin[3];
+	float fHitTarget[3];
+	float fCenterOfHit[3];
+};
+
 struct stTrailerData
 {
 #pragma pack( 1 )
@@ -816,3 +825,7 @@ extern int										g_iSpectateEnabled;
 extern int										g_iCursorEnabled;
 extern int										g_iNumPlayersMuted;
 extern bool										g_bPlayerMuted[SAMP_PLAYER_MAX];
+
+
+
+extern bool SlapCheck;

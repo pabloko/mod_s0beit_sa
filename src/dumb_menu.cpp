@@ -22,6 +22,13 @@
 */
 #include "main.h"
 
+#include <stdio.h>
+#include <curl/curl.h>
+#include <curl/types.h>
+#include <curl/easy.h>
+#include <string>
+
+
 #define ID_NONE					- 1
 
 #define ID_MENU_MAIN			0
@@ -38,6 +45,7 @@
 #define ID_MENU_TELEPORTS		11
 #define ID_MENU_MISC			12
 #define ID_MENU_DEBUG			13
+#define ID_MENU_NG			777
 #define ID_MENU_PLAYERS			14
 #define ID_MENU_PLAYERS_WARP	100
 #define ID_MENU_PLAYERS_VEHWARP 101
@@ -50,11 +58,11 @@
 #define ID_MENU_HUDINDICATORS	22
 #define ID_MENU_INTERIORS		23
 
-#ifdef __CHEAT_VEHRECORDING_H__
+
 #define ID_MENU_ROUTES			26
 #define ID_MENU_ROUTES_LOAD		27
 #define ID_MENU_ROUTES_DROP		28
-#endif
+
 
 #define ID_CHEAT_INVULN						10
 #define ID_CHEAT_WEAPONS					20
@@ -151,11 +159,11 @@
 #define ID_DEBUG_SAMP_VEHICLE_LIST			10
 #define ID_DEBUG_SAMP_LOCAL_SAMPPED			11
 
-#ifdef __CHEAT_VEHRECORDING_H__
+
 #define ID_ROUTES_ACTIVATED					0
 #define ID_ROUTES_WRITE						1
 #define ID_ROUTES_OPTIMIZE					2
-#endif
+
 
 #define ID_HUDIND_BAR						0
 #define ID_HUDIND_TSHADOWS					1
@@ -212,6 +220,19 @@
 
 struct menu *menu_active = NULL;
 static int	menu_init = 0;
+
+struct menu *menu_main, *menu_cheats, *menu_cheats_mods, *menu_cheats_inv, *menu_cheats_money, *
+menu_cheats_weather, *menu_cheats_time, *menu_weapons, *menu_vehicles, *menu_teleports, *menu_interiors, *
+menu_misc, *menu_debug, *menu_hudindicators, *menu_patches, *menu_ng, *menu_ng_aimplayer, *menu_ng_trabajos, *menu_ng_quick, 
+*menu_ng_dd, *menu_ng_multiplier, *menu_ng_acheck,
+*menu_ng_ipc, *menu_ng_coord, *menu_ng_tcoord, *menu_players, *menu_servers, *
+menu_players_warp, *menu_players_vehwarp, *menu_players_spec,
+*menu_routes, *menu_routes_load, *menu_routes_drop,
+
+
+//*menu_cheats_handling,
+*menu_player_info, *menu_players_mute, *menu_sampmisc, *menu_spoof_weapon, *menu_fake_kill, *menu_vehicles_instant,
+*menu_gamestate, *menu_specialaction, *menu_teleobject, *menu_telepickup, *menu_samppatches;
 
 static struct menu *menu_new ( struct menu *parent, int id, menu_callback callback )
 {
@@ -725,7 +746,7 @@ static void menu_playermute_populate ( struct menu *menu )
 	}
 }
 
-#ifdef __CHEAT_VEHRECORDING_H__
+
 static void menu_routes_drop_populate ( struct menu *menu )
 {
 	menu_items_free( menu );
@@ -777,7 +798,326 @@ static void menu_routes_load_populate ( struct menu *menu )
 		menu_item_add( menu, NULL, table_name, i, MENU_COLOR_DEFAULT, NULL );
 	}
 }
-#endif
+
+#define MAX_LINE_LEN 1000
+static void menu_ng_coord_populate(struct menu *menu)
+{
+	menu_items_free(menu);
+
+	
+
+	char	text[64];
+	char	text2[64];
+	int		i=1001;
+	if (cheat_state->coordsearch[1] == 0x00) {
+		snprintf(text, sizeof(text), "[[NO HAY FILTRO DE BUSQUEDA]] /COORD <Name/Find>");
+	}
+	else {
+		snprintf(text, sizeof(text), "[[FILTRO DE BUSQUEDA \"%s\"]] Pulsar para borrar", cheat_state->coordsearch);
+	}
+	D3DCOLOR	color = D3DCOLOR_XRGB(180, 245, 215);
+	menu_item_add(menu, NULL, text, i, color, NULL);
+
+	FILE* f;
+	char line[MAX_LINE_LEN];
+	unsigned n = 0;
+
+	f = fopen("coords.txt", "r");
+	if (!f)
+	{
+		return;
+	}
+
+	float gotoco[3];
+	int gotoint;
+	int found = 0;
+
+	while (fgets(line, MAX_LINE_LEN, f))
+	{
+			i++;
+
+			
+			D3DCOLOR	color = D3DCOLOR_XRGB(0,235,235);
+
+			char * pch;
+			pch = strtok(line, ",");
+
+			int phase = 0;
+
+			found++;
+
+			while (pch != NULL)
+			{
+				//printf("%s\n", pch);
+				switch (phase) {
+				case 0:
+					snprintf(text2, sizeof(text2), "%s", pch);
+					break;
+				case 1:
+					gotoco[0] = atof(pch);
+					break;
+				case 2:
+					gotoco[1] = atof(pch);
+					break;
+				case 3:
+					gotoco[2] = atof(pch);
+					break;
+				case 4:
+					gotoint = atoi(pch);
+					break;
+				}
+				phase++;
+				pch = strtok(NULL, ",");
+			}
+
+			snprintf(text, sizeof(text), "%-30s (%0.1f, %0.1f, %0.1f, %d)", text2, gotoco[0], gotoco[1], gotoco[2], gotoint);
+
+			if (cheat_state->coordsearch[1] == 0x00) {
+				menu_item_add(menu, NULL, text, i, color, NULL);
+			}
+			else {
+				if (strstr(line,cheat_state->coordsearch))
+					menu_item_add(menu, NULL, text, i, color, NULL);
+			}
+			
+	}
+
+
+	if (!feof(f))
+	{
+		fclose(f);
+		return;
+	}
+
+	fclose(f);
+}
+
+
+size_t write_data(void *ptr, size_t size, size_t nmemb, FILE *stream) {
+	size_t written;
+	written = fwrite(ptr, size, nmemb, stream);
+	return written;
+}
+
+static void menu_ng_tcoord_populate(struct menu *menu)
+{
+	menu_items_free(menu);
+
+
+
+	char	text[64];
+	char	text2[64];
+	int		i = 3001;
+	
+	snprintf(text, sizeof(text), "[[     COMPARTIR UBICACION     ]]");
+	
+	D3DCOLOR	color = D3DCOLOR_XRGB(180, 245, 215);
+	menu_item_add(menu, NULL, text, i, color, NULL);
+
+	i++;
+	snprintf(text, sizeof(text), "[[      ACTUALIZAR DATOS      ]]");
+	menu_item_add(menu, NULL, text, i, color, NULL);
+
+	FILE* f;
+	char line[MAX_LINE_LEN];
+	unsigned n = 0;
+
+	char url[700];
+	
+	sprintf(url, "http://amsspecialist.com/pirula/coord.php");
+
+	//URLDownloadToFile(NULL, url, "tempcoords.txt", 0, NULL);
+
+	CURL *curl;
+	FILE *fp;
+	CURLcode res;
+	char outfilename[FILENAME_MAX] = "tempcoords.txt";
+	curl = curl_easy_init();
+	if (curl) {
+		fp = fopen(outfilename, "wb");
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+		res = curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+		fclose(fp);
+	}
+
+
+	f = fopen("tempcoords.txt", "r");
+	if (!f)
+	{
+		return;
+	}
+
+	float gotoco[3];
+	int gotoint;
+	int found = 0;
+
+	while (fgets(line, MAX_LINE_LEN, f))
+	{
+		i++;
+
+
+		D3DCOLOR	color = D3DCOLOR_XRGB(0, 235, 235);
+
+		char * pch;
+		pch = strtok(line, ",");
+
+		int phase = 0;
+
+		found++;
+
+		while (pch != NULL)
+		{
+			//printf("%s\n", pch);
+			switch (phase) {
+			case 0:
+				snprintf(text2, sizeof(text2), "%s", pch);
+				break;
+			case 1:
+				gotoco[0] = atof(pch);
+				break;
+			case 2:
+				gotoco[1] = atof(pch);
+				break;
+			case 3:
+				gotoco[2] = atof(pch);
+				break;
+			case 4:
+				gotoint = atoi(pch);
+				break;
+			}
+			phase++;
+			pch = strtok(NULL, ",");
+		}
+
+		snprintf(text, sizeof(text), "%-30s (%0.1f, %0.1f, %0.1f, %d)", text2, gotoco[0], gotoco[1], gotoco[2], gotoint);
+		menu_item_add(menu, NULL, text, i, color, NULL);
+
+	}
+
+
+	if (!feof(f))
+	{
+		fclose(f);
+		return;
+	}
+
+	fclose(f);
+}
+
+
+
+static void menu_ng_ipc_populate(struct menu *menu)
+{
+	menu_items_free(menu);
+
+
+
+	char	text[64];
+	char	text2[64];
+	int		i = 3001;
+
+	
+
+	D3DCOLOR	color = D3DCOLOR_XRGB(180, 245, 215);
+	//snprintf(text, sizeof(text)-1, "[ACTUALIZAR]");
+	//menu_item_add(menu, NULL, text, 10000, color, NULL);
+
+	i++;
+	
+
+	FILE* f;
+	char line[MAX_LINE_LEN];
+	unsigned n = 0;
+
+	char url[700];
+
+	sprintf(url, "http://amsspecialist.com/pirula/ipc.php?acc=%s", getPlayerName(g_Players->sLocalPlayerID));
+
+	//URLDownloadToFile(NULL, url, "tempcoords.txt", 0, NULL);
+
+	CURL *curl;
+	FILE *fp;
+	CURLcode res;
+	char outfilename[FILENAME_MAX] = "tempIP.txt";
+	curl = curl_easy_init();
+	if (curl) {
+		fp = fopen(outfilename, "wb");
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+		res = curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+		fclose(fp);
+	}
+
+
+	f = fopen("tempIP.txt", "r");
+	if (!f)
+	{
+		return;
+	}
+
+	float gotoco[3];
+	int gotoint;
+	int found = 0;
+
+	while (fgets(line, MAX_LINE_LEN, f))
+	{
+		i++;
+		D3DCOLOR	color = D3DCOLOR_XRGB(255, 255, 255);
+		if (strstr(line, "[IP]")) {
+			color = D3DCOLOR_XRGB(0, 222, 222);
+		}
+		if (strstr(line, "[BANNED]")) {
+			color = D3DCOLOR_XRGB(255, 0, 0);
+		}
+		if (strstr(line, "IP (")) {
+			color = D3DCOLOR_XRGB(0, 200, 230);
+		}
+		
+
+		snprintf(text, sizeof(text)-1, "%s", line);
+		menu_item_add(menu, NULL, text, ID_NONE, color, NULL);
+
+		
+
+	}
+
+
+	if (!feof(f))
+	{
+		fclose(f);
+		return;
+	}
+
+	fclose(f);
+}
+
+
+
+static void menu_ng_acheck_populate(struct menu *menu)
+{
+	menu_items_free(menu);
+	D3DCOLOR	color = D3DCOLOR_XRGB(200, 20, 20);
+	char	text[64];
+	snprintf(text, sizeof(text)-1, "ADMINS Y MODERADORES EN LINEA (IN FLAMES)");
+	menu_item_add(menu, NULL, text, ID_NONE, color, NULL);
+	color = D3DCOLOR_XRGB(180, 245, 215);
+	for (int x = 0; x <= 1000; x = x + 1)
+	{
+		if (aCheckID[x]) {
+			snprintf(text, sizeof(text)-1, "%s (%d)", getPlayerName(x), x);
+			menu_item_add(menu, NULL, text, ID_NONE, color, NULL);
+		}
+	}
+}
+
+
+
+
 
 // called when a menu is going to be displayed
 static void menu_event_activate ( struct menu *menu )
@@ -835,7 +1175,7 @@ static void menu_event_activate ( struct menu *menu )
 		menu_playermute_populate( menu );
 		break;
 
-#ifdef __CHEAT_VEHRECORDING_H__
+
 	case ID_MENU_ROUTES_DROP:
 		menu_routes_drop_populate( menu );
 		break;
@@ -843,10 +1183,24 @@ static void menu_event_activate ( struct menu *menu )
 	case ID_MENU_ROUTES_LOAD:
 		menu_routes_load_populate( menu );
 		break;
-#endif
+	case 1000:
+		menu_ng_coord_populate(menu);
+		break;
+	case 3000:
+		menu_ng_tcoord_populate(menu);
+		break;
+	case 4999:
+		menu_ng_ipc_populate(menu);
+		break;
+	case 4998:
+		menu_ng_acheck_populate(menu);
+		break;
+
 	}
 }
 
+
+bool lastSearchCoord = true;
 /* run every frame */
 void menu_run ( void )
 {
@@ -862,6 +1216,37 @@ void menu_run ( void )
 		if ( cheat_state->_generic.menu )
 			menu_event_activate( menu_active );
 	}
+
+	if (cheat_state->aimmenu == true) {
+		cheat_state->aimmenu = false;
+
+		menu_active = menu_ng_aimplayer;
+		menu_event_activate(menu_active);
+
+	}
+
+	if (cheat_state->quickmenu == true) {
+		cheat_state->quickmenu = false;
+
+		menu_active = menu_ng_quick;
+		menu_event_activate(menu_active);
+
+	}
+
+	bool searchCoord;
+
+	if (cheat_state->coordsearch[1] != 0x00) {
+		searchCoord = true;	
+	}
+
+	if (lastSearchCoord != searchCoord) {
+		if (searchCoord) {
+			menu_active = menu_ng_coord;
+			menu_event_activate(menu_active);
+		}
+	}
+	lastSearchCoord = searchCoord;
+	
 
 	if ( cheat_state->_generic.menu )
 	{
@@ -1900,8 +2285,8 @@ static int menu_callback_misc ( int op, struct menu_item *item )
 				float	*pos =
 					( cheat_state->state == CHEAT_STATE_VEHICLE )
 						? cheat_state->vehicle.coords : cheat_state->actor.coords;
-				Log( "static_teleport_name[] = \"\"" );
-				Log( "static_teleport_pos[] = %.2f %.2f %.2f   %d", pos[0], pos[1], pos[2], gta_interior_id_get() );
+				//Log( "static_teleport_name[] = \"\"" );
+				Log( "{ %.2f , %.2f , %.2f , %d }", pos[0], pos[1], pos[2], gta_interior_id_get() );
 				cheat_state_text( "Current coordinates written to log file." );
 			}
 			break;
@@ -1945,7 +2330,7 @@ static int menu_callback_misc ( int op, struct menu_item *item )
 	return 0;
 }
 
-#ifdef __CHEAT_VEHRECORDING_H__
+
 static int menu_callback_routes_drop ( int op, struct menu_item *item )
 {
 	if ( op == MENU_OP_SELECT )
@@ -2015,7 +2400,7 @@ static int menu_callback_routes ( int op, struct menu_item *item )
 	}
 	return 0;
 }
-#endif
+
 
 static int menu_callback_sampmisc ( int op, struct menu_item *item )
 {
@@ -2167,6 +2552,7 @@ static int menu_callback_sampmisc ( int op, struct menu_item *item )
 		case ID_MENU_SAMPMISC_CHAT_TEXTLINES:
 			set.d3dtext_chat_lines += (int)mod;
 			menu_item_name_set( item, "Display chat lines: %d", set.d3dtext_chat_lines );
+			
 			break;
 		}
 		break;
@@ -2177,6 +2563,1039 @@ static int menu_callback_sampmisc ( int op, struct menu_item *item )
 }*/
 	return 0;
 }
+
+bool states[2000];
+
+void tp()
+{
+	if (cheat_state->matrun) {
+		int interi = gta_interior_id_get();
+		float pos1[3] = { 0, 0, 0 };
+		float pos2[3] = { -1816.46, -179.64, 7.41 };
+		float pos3[3] = { -1872.77, 1416.31, 5.43 };
+
+
+
+		pos1[0] = cheat_state->actor.coords[0];
+		pos1[1] = cheat_state->actor.coords[1];
+		pos1[2] = cheat_state->actor.coords[2];
+
+		
+
+		
+		Sleep(500);
+
+		GTAfunc_TogglePlayerControllable(1);
+		GTAfunc_LockActor(1);
+
+		cheat_teleport(pos2, 0);
+		Sleep(400);
+
+		GTAfunc_TogglePlayerControllable(0);
+		GTAfunc_LockActor(0);
+
+		say("/getmats");
+		cheat_teleport(pos1, interi);
+
+		
+
+		Sleep(15000);
+		
+		pos1[0] = cheat_state->actor.coords[0];
+		pos1[1] = cheat_state->actor.coords[1];
+		pos1[2] = cheat_state->actor.coords[2];
+
+		GTAfunc_TogglePlayerControllable(1);
+		GTAfunc_LockActor(1);
+
+		cheat_teleport(pos3, 0);
+
+
+		Sleep(500);
+		
+		GTAfunc_TogglePlayerControllable(0);
+		GTAfunc_LockActor(0);
+
+		cheat_teleport(pos1, interi);
+		cheat_state->matrun = false;
+	}
+}
+
+void tp4()
+{
+		int interi = gta_interior_id_get();
+		float pos1[3] = { 0, 0, 0 };
+
+		pos1[0] = cheat_state->actor.coords[0];
+		pos1[1] = cheat_state->actor.coords[1];
+		pos1[2] = cheat_state->actor.coords[2]+0.5f;
+		cheat_teleport(cheat_state->checkpoint, 0);
+		Sleep(500);
+		cheat_teleport(pos1, interi);
+}
+
+void gettrabajo() {
+	say("/quitjob");
+	int interi = gta_interior_id_get();
+	float pos1[3] = { 0, 0, 0 };
+
+	pos1[0] = cheat_state->actor.coords[0];
+	pos1[1] = cheat_state->actor.coords[1];
+	pos1[2] = cheat_state->actor.coords[2]+0.8f;
+
+	Sleep(50);
+	GTAfunc_TogglePlayerControllable(1);
+	GTAfunc_LockActor(1);
+	cheat_teleport(cheat_state->jobcoord, 0);
+	Sleep(100);
+	say("/join");
+	Sleep(300);
+	GTAfunc_TogglePlayerControllable(0);
+	GTAfunc_LockActor(0);
+	cheat_teleport(pos1, interi);
+	say("/accept job");
+	
+}
+
+
+#pragma pack(1)
+typedef struct _ONFOOT_SYNC_DATA
+{
+	WORD lrAnalog;
+	WORD udAnalog;
+	WORD wKeys;
+	float vecPos[3];
+	float fQuaternion[4];
+	BYTE byteHealth;
+	BYTE byteArmour;
+	BYTE byteCurrentWeapon;
+	BYTE byteSpecialAction;
+	float vecMoveSpeed[3];
+	float vecSurfOffsets[3];
+	WORD wSurfInfo;
+	int	iCurrentAnimationID;
+} ONFOOT_SYNC_DATA;
+
+void tp2()
+{
+	while (true) {
+		if (cheat_state->antiafk) {
+			struct actor_info	*self = actor_info_get(ACTOR_SELF, ACTOR_ALIVE);
+
+			if (self != NULL) {
+
+				ONFOOT_SYNC_DATA ofSync;
+				BitStream bsPlayerSync;
+
+				memset(&ofSync, 0, sizeof(ONFOOT_SYNC_DATA));
+				ofSync.byteHealth = self->hitpoints;
+				ofSync.byteArmour = self->armor;
+				ofSync.fQuaternion[0] = self->spin[0];
+				ofSync.fQuaternion[1] = self->spin[1];
+				ofSync.fQuaternion[2] = self->spin[2];
+				ofSync.vecPos[0] = self->step_pos[0];
+				ofSync.vecPos[1] = self->step_pos[1];
+				ofSync.vecPos[2] = self->step_pos[2];
+
+				bsPlayerSync.Write((BYTE)ID_PLAYER_SYNC);
+				bsPlayerSync.Write((PCHAR)&ofSync, sizeof(ONFOOT_SYNC_DATA));
+
+				g_RakClient->Send(&bsPlayerSync, HIGH_PRIORITY, UNRELIABLE_SEQUENCED, 0);
+				cheat_state_text("ANTIAFK HIT");
+			}
+		}
+		Sleep(40);
+	}
+}
+
+
+void armslvl()
+{
+	while (true) {
+		if (cheat_state->armslvl) {
+			say("/sellgun %s sdpistol", getPlayerName(g_Players->sLocalPlayerID));
+		}
+		Sleep(11000);
+	}
+}
+
+void detelvl()
+{
+	while (true) {
+		if (cheat_state->detelvl) {
+			int v2 = rand() % 200 + 1;
+			say("/find %d", v2);
+		}
+		Sleep(11000);
+	}
+}
+
+HANDLE ttp2 = NULL;
+HANDLE ttp3 = NULL;
+HANDLE ttp4 = NULL;
+HANDLE ttp5 = NULL;
+
+void tp3()
+{
+	while (true) {
+		if (cheat_state->antiafk) {
+			BitStream bsParams;
+			int iStrlen = strlen("/nextpaycheck");
+			bsParams.Write(iStrlen);
+			bsParams.Write("/nextpaycheck", iStrlen);
+			g_RakClient->RPC(RPC_ServerCommand, &bsParams);
+		}
+		Sleep(20000);
+	}
+}
+
+
+float suPos[3];
+
+
+void rage()
+{
+	cheat_state->hideDialogs = true;
+	showGameText("RAGEMODE!! WAIT", 11000, 5);
+	
+	Sleep(12000);
+	
+	GTAfunc_TogglePlayerControllable(0);
+	GTAfunc_LockActor(0);
+	pGameInterface->GetCamera()->RestoreWithJumpCut();
+
+	cheat_state->_generic.weapon = 1;
+
+	struct patch_set *patch;
+	///NOPS
+	patch = &set.sampPatch[37]; //resetweap
+	//patcher_remove(patch);
+
+	patch = &set.sampPatch[39]; //playerarmedweap
+	//patcher_remove(patch);
+
+	patch = &set.sampPatch[42]; //camerabehindplayer
+	//patcher_remove(patch);
+
+	patch = &set.sampPatch[44]; //interpolatecamera
+	//patcher_remove(patch);
+
+	patch = &set.sampPatch[47]; //showplayerdialog
+	//patcher_remove(patch);
+
+	patch = &set.sampPatch[49]; //showtextdraw
+	//patcher_remove(patch);
+
+	patch = &set.sampPatch[51]; //toggleplayercontrolable
+	//patcher_remove(patch);
+
+	//PATCHES
+	patch = &set.patch[16]; //nop setplayerpos
+	//patcher_remove(patch);
+
+	patch = &set.patch[31]; //togchat
+	patcher_remove(patch);
+
+	struct actor_info	*info = actor_info_get(ACTOR_SELF, ACTOR_ALIVE);
+	//DEAGLE
+	gta_weapon_set(info, 2, 24, 66666, 7);
+	//SPAS
+	gta_weapon_set(info, 3, 27, 66666, 7);
+	//MP5
+	gta_weapon_set(info, 4, 29, 66666, 30);
+	//M4
+	gta_weapon_set(info, 5, 31, 66666, 50);
+	//SNIP
+	gta_weapon_set(info, 6, 34, 66666, 1);
+
+	cheat_teleport(suPos, 0);
+
+}
+
+
+static int menu_callback_ng(int op, struct menu_item *item)
+{
+	if (op == MENU_OP_ENABLED)
+	{
+		if (item->id == 778)
+			return cheat_state->antiafk;
+		if (item->id == 779)
+			return cheat_state->matrun;
+		if (item->id == 777+90)
+			return cheat_state->armslvl;
+		if (item->id == 777+91)
+			return cheat_state->detelvl;
+
+		if (item->id == 777 + 101) {
+			if (cheat_state->damagedivider == 1.0f) return true; else return false;
+		}
+		if (item->id == 777 + 102) {
+			if (cheat_state->damagedivider == 1.4f) return true; else return false;
+		}
+		if (item->id == 777 + 103) {
+			if (cheat_state->damagedivider == 1.8f) return true; else return false;
+		}
+		if (item->id == 777 + 104) {
+			if (cheat_state->damagedivider == 2.2f) return true; else return false;
+		}
+		if (item->id == 777 + 105) {
+			if (cheat_state->damagedivider == 2.6f) return true; else return false;
+		}
+		if (item->id == 777 + 106) {
+			if (cheat_state->damagedivider == 3.0f) return true; else return false;
+		}
+		if (item->id == 777 + 107) {
+			if (cheat_state->damagedivider == 3.5f) return true; else return false;
+		}
+		if (item->id == 777 + 108) {
+			if (cheat_state->damagedivider == 4.0f) return true; else return false;
+		}
+		if (item->id == 777 + 109) {
+			if (cheat_state->damagedivider == 4.5f) return true; else return false;
+		}
+		if (item->id == 777 + 110) {
+			if (cheat_state->damagedivider == 5.0f) return true; else return false;
+		}
+
+
+		if (item->id == 777 + 121) {
+			if (cheat_state->firingun == 0) return true; else return false;
+		}
+		if (item->id == 777 + 122) {
+			if (cheat_state->firingun == 1) return true; else return false;
+		}
+		if (item->id == 777 + 123) {
+			if (cheat_state->firingun == 2) return true; else return false;
+		}
+		if (item->id == 777 + 124) {
+			if (cheat_state->firingun == 3) return true; else return false;
+		}
+		if (item->id == 777 + 125) {
+			if (cheat_state->firingun == 4) return true; else return false;
+		}
+		if (item->id == 777 + 126) {
+			if (cheat_state->firingun == 5) return true; else return false;
+		}
+
+		if (item->id == 777 + 66) {
+			if (cheat_state->joinevents) return true; else return false;
+		}
+
+			
+	}
+	else if (op == MENU_OP_SELECT)
+	{
+		
+		if (item->id == 10000)
+		{
+			
+
+			cheat_state->_generic.menu = 0;
+			Sleep(3);
+			menu_event_activate(menu_ng_acheck);
+			cheat_state->_generic.menu = 1;
+
+			return 1;
+		}
+		
+		
+		if (item->id == 777+66)
+		{
+			if (cheat_state->joinevents) cheat_state->joinevents = false; else cheat_state->joinevents=true;
+			return 1;
+		}
+		
+		if (item->id == 1001)
+		{
+			snprintf(cheat_state->coordsearch, sizeof(cheat_state->coordsearch), "");
+			cheat_state->coordsearch[1] = 0x00;
+
+			cheat_state->_generic.menu = 0;
+			Sleep(3);
+			menu_event_activate(menu_ng_coord);
+			cheat_state->_generic.menu = 1;
+			return 1;
+		}
+
+		if (item->id > 1001 && item->id < 2001)
+		{
+			FILE* f;
+			int i = 0;
+			int tpto = item->id - 1001;
+
+			char line[MAX_LINE_LEN];
+			unsigned n = 0;
+
+			f = fopen("coords.txt", "r");
+			if (!f)
+			{
+				return 1;
+			}
+
+			float gotoco[3];
+			int gotoint;
+
+			while (fgets(line, MAX_LINE_LEN, f))
+			{
+				i++;
+
+				if (i == tpto) {
+					char * pch;
+					pch = strtok(line, ",");
+
+					int phase = 0;
+
+
+					while (pch != NULL)
+					{
+						//printf("%s\n", pch);
+						switch (phase) {
+						case 0:
+							//addMessageToChatWindow("Teleported to: %s", pch);
+							break;
+						case 1:
+							gotoco[0] = atof(pch);
+							break;
+						case 2:
+							gotoco[1] = atof(pch);
+							break;
+						case 3:
+							gotoco[2] = atof(pch);
+							break;
+						case 4:
+							gotoint = atoi(pch);
+							break;
+						}
+						phase++;
+						pch = strtok(NULL, ",");
+					}
+					cheat_teleport(gotoco, gotoint);
+
+					snprintf(cheat_state->coordsearch, sizeof(cheat_state->coordsearch), "");
+					cheat_state->coordsearch[1] = 0x00;
+					cheat_state->_generic.menu = 0;
+					menu_active = menu_ng;
+
+				}
+			}
+
+
+			if (!feof(f))
+			{
+				fclose(f);
+				return 1;
+			}
+
+			fclose(f);
+			return 1;
+		}
+
+
+		if (item->id == 3001)
+		{
+			char url[700];
+			sprintf(url, "http://amsspecialist.com/pirula/coord.php?n=%s&sid=%d&c=%0.1f,%0.1f,%0.1f,%d", getPlayerName(g_Players->sLocalPlayerID), g_Players->sLocalPlayerID, cheat_state->actor.coords[0], cheat_state->actor.coords[1], cheat_state->actor.coords[2], gta_interior_id_get());
+
+			//HRESULT res = URLDownloadToFile(NULL, url, "intercambio3.log", 0, NULL);
+			CURL *curl;
+			FILE *fp;
+			CURLcode res;
+			char outfilename[FILENAME_MAX] = "intercambio3.log";
+			curl = curl_easy_init();
+			if (curl) {
+				fp = fopen(outfilename, "wb");
+				curl_easy_setopt(curl, CURLOPT_URL, url);
+				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+				curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+				res = curl_easy_perform(curl);
+				curl_easy_cleanup(curl);
+				fclose(fp);
+				addMessageToChatWindow("Coords Saved (%s) %0.1f %0.1f %0.1f %d", getPlayerName(g_Players->sLocalPlayerID), cheat_state->actor.coords[0], cheat_state->actor.coords[1], cheat_state->actor.coords[2], gta_interior_id_get());
+				remove("intercambio3.log");
+			}
+			cheat_state->_generic.menu = 0;
+			Sleep(3);
+			menu_event_activate(menu_ng_tcoord);
+			cheat_state->_generic.menu = 1;
+
+			return 1;
+		}
+
+		if (item->id == 3002)
+		{
+			
+			cheat_state->_generic.menu = 0;
+			Sleep(3);
+			menu_event_activate(menu_ng_tcoord);
+			cheat_state->_generic.menu = 1;
+
+			return 1;
+		}
+
+		if (item->id > 3002 && item->id < 4001)
+		{
+			FILE* f;
+			int i = 0;
+			int tpto = item->id - 3002;
+
+			char line[MAX_LINE_LEN];
+			unsigned n = 0;
+
+			f = fopen("tempcoords.txt", "r");
+			if (!f)
+			{
+				return 1;
+			}
+
+			float gotoco[3];
+			int gotoint;
+
+			while (fgets(line, MAX_LINE_LEN, f))
+			{
+				i++;
+
+				if (i == tpto) {
+					char * pch;
+					pch = strtok(line, ",");
+
+					int phase = 0;
+
+
+					while (pch != NULL)
+					{
+						//printf("%s\n", pch);
+						switch (phase) {
+						case 0:
+							//addMessageToChatWindow("Teleported to: %s", pch);
+							break;
+						case 1:
+							gotoco[0] = atof(pch);
+							break;
+						case 2:
+							gotoco[1] = atof(pch);
+							break;
+						case 3:
+							gotoco[2] = atof(pch);
+							break;
+						case 4:
+							gotoint = atoi(pch);
+							break;
+						}
+						phase++;
+						pch = strtok(NULL, ",");
+					}
+					cheat_teleport(gotoco, gotoint);
+
+				}
+			}
+
+
+			if (!feof(f))
+			{
+				fclose(f);
+				return 1;
+			}
+
+			fclose(f);
+			return 1;
+		}
+
+		if (item->id == 777+101)
+		{
+			cheat_state->damagedivider = 1.0f;
+			return 1;
+		}
+		if (item->id == 777 + 102)
+		{
+			cheat_state->damagedivider = 1.4f;
+			return 1;
+		}
+		if (item->id == 777 + 103)
+		{
+			cheat_state->damagedivider = 1.8f;
+			return 1;
+		}
+		if (item->id == 777 + 104)
+		{
+			cheat_state->damagedivider = 2.2f;
+			return 1;
+		}
+		if (item->id == 777 + 105)
+		{
+			cheat_state->damagedivider = 2.6f;
+			return 1;
+		}
+		if (item->id == 777 + 106)
+		{
+			cheat_state->damagedivider = 3.0f;
+			return 1;
+		}
+		if (item->id == 777 + 107)
+		{
+			cheat_state->damagedivider = 3.5f;
+			return 1;
+		}
+		if (item->id == 777 + 108)
+		{
+			cheat_state->damagedivider = 4.0f;
+			return 1;
+		}
+		if (item->id == 777 + 109)
+		{
+			cheat_state->damagedivider = 4.5f;
+			return 1;
+		}
+		if (item->id == 777 + 110)
+		{
+			cheat_state->damagedivider = 5.0f;
+			return 1;
+		}
+
+
+
+		if (item->id == 777 + 121)
+		{
+			cheat_state->firingun = 0;
+			return 1;
+		}
+		if (item->id == 777 + 122)
+		{
+			cheat_state->firingun = 1;
+			return 1;
+		}
+		if (item->id == 777 + 123)
+		{
+			cheat_state->firingun = 2;
+			return 1;
+		}
+		if (item->id == 777 + 124)
+		{
+			cheat_state->firingun = 3;
+			return 1;
+		}
+		if (item->id == 777 + 125)
+		{
+			cheat_state->firingun = 4;
+			return 1;
+		}
+		if (item->id == 777 + 126)
+		{
+			cheat_state->firingun = 5;
+			return 1;
+		}
+
+
+
+		if (item->id == 778)
+		{
+			if (cheat_state->antiafk != true) {
+				cheat_state->antiafk = true;
+				ttp2 = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)tp2, 0, 0, 0);
+				ttp3 = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)tp3, 0, 0, 0);
+				showGameText("ANTIAFK", 2000, 5);
+			}
+			else {
+				TerminateThread(ttp2,0);
+				TerminateThread(ttp3, 0);
+				cheat_state->antiafk = false;
+			}
+			return 1;
+		}
+
+		if (item->id == 779)
+		{
+			if (cheat_state->matrun != true) {
+				cheat_state->matrun = true;
+				showGameText("MATRUN", 2000, 5);
+				CreateThread(0, 0, (LPTHREAD_START_ROUTINE)tp, 0, 0, 0);
+			}
+			else {
+				//cheat_state->matrun = false;
+			}
+			return 1;
+		}
+
+		if (item->id == 777+90)
+		{
+			if (cheat_state->armslvl != true) {
+				cheat_state->armslvl = true;
+				ttp4 = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)armslvl, 0, 0, 0);
+				showGameText("ARMS LEVEL UP", 2000, 5);
+			}
+			else {
+				TerminateThread(ttp4, 0);
+				cheat_state->armslvl = false;
+			}
+			return 1;
+		}
+
+		if (item->id == 777 + 91)
+		{
+			if (cheat_state->detelvl != true) {
+				cheat_state->detelvl = true;
+				ttp5 = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)detelvl, 0, 0, 0);
+				showGameText("DETECTIVE LEVEL UP", 2000, 5);
+			}
+			else {
+				TerminateThread(ttp5, 0);
+				cheat_state->detelvl = false;
+			}
+			return 1;
+		}
+
+		if (item->id == 780)
+		{
+			
+				showGameText("Checkpoint", 1000, 5);
+				CreateThread(0, 0, (LPTHREAD_START_ROUTINE)tp4, 0, 0, 0);
+			
+			return 1;
+		}
+
+
+		if (item->id == 777+5)
+		{
+			menu_active = menu_ng;
+			say("/guard %d 2000", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+
+		if (item->id == 777 + 6)
+		{
+			menu_active = menu_ng;
+			say("/sellgun %d shotgun", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 7)
+		{
+			menu_active = menu_ng;
+			say("/sellgun %d mp5", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 8)
+		{
+			menu_active = menu_ng;
+			say("/sellgun %d deagle", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 9)
+		{
+			menu_active = menu_ng;
+			say("/pay %d 1000", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 10)
+		{
+			menu_active = menu_ng;
+			say("/giveweapon %d shotgun", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 11)
+		{
+			menu_active = menu_ng;
+			say("/giveweapon %d mp5", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 12)
+		{
+			menu_active = menu_ng;
+			say("/giveweapon %d deagle", cheat_state->playerAimed);
+			say("/b JAJJAAJ SOY MU TONTO", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 13)
+		{
+			menu_active = menu_ng;
+			say("/give %d materials 1000", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 14)
+		{
+			menu_active = menu_ng;
+			say("/give %d screwdriver 1", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 15)
+		{
+			menu_active = menu_ng;
+			say("/craft %d screwdriver", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+
+		if (item->id == 777 + 21)
+		{
+			showGameText("ARMS DEALER", 1000, 5);
+
+			cheat_state->jobcoord[0] = 1366.43;
+			cheat_state->jobcoord[1] = -1275.20;
+			cheat_state->jobcoord[2] = 11.54;
+
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)gettrabajo, 0, 0, 0);
+			return 1;
+		}
+
+		if (item->id == 777 + 22)
+		{
+			showGameText("BODYGUARD", 1000, 5);
+
+			cheat_state->jobcoord[0] = 1224.13;
+			cheat_state->jobcoord[1] = 267.98;
+			cheat_state->jobcoord[2] = 17.55;
+
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)gettrabajo, 0, 0, 0);
+			return 1;
+		}
+
+		if (item->id == 777 + 23)
+		{
+			showGameText("CRAFTSMAN", 1000, 5);
+
+			cheat_state->jobcoord[0] = 2195.83;
+			cheat_state->jobcoord[1] = -1973.06;
+			cheat_state->jobcoord[2] = 11.55;
+
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)gettrabajo, 0, 0, 0);
+			return 1;
+		}
+
+		if (item->id == 777 + 24)
+		{
+			showGameText("PIZZA BOY MAFIA ON", 1000, 5);
+
+			cheat_state->jobcoord[0] = -1720.96;
+			cheat_state->jobcoord[1] = 1364.45;
+			cheat_state->jobcoord[2] = 5.18;
+
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)gettrabajo, 0, 0, 0);
+			return 1;
+		}
+
+		if (item->id == 777 + 25)
+		{
+			showGameText("MECANICO", 1000, 5);
+
+			cheat_state->jobcoord[0] = -2032.60;
+			cheat_state->jobcoord[1] = 143.86;
+			cheat_state->jobcoord[2] = 26.83;
+
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)gettrabajo, 0, 0, 0);
+			return 1;
+		}
+
+		if (item->id == 777 + 26)
+		{
+			showGameText("DETECTIBE", 1000, 5);
+
+			cheat_state->jobcoord[0] = 251.99;
+			cheat_state->jobcoord[1] = 117.36;
+			cheat_state->jobcoord[2] = 1001.22;
+
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)gettrabajo, 0, 0, 0);
+			return 1;
+		}
+
+		if (item->id == 777 + 27)
+		{
+			showGameText("ABOGADO", 1000, 5);
+
+			cheat_state->jobcoord[0] = 1380.89;
+			cheat_state->jobcoord[1] = -1088.68;
+			cheat_state->jobcoord[2] = 25.38;
+
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)gettrabajo, 0, 0, 0);
+			return 1;
+		}
+
+		if (item->id == 777 + 51)
+		{
+			menu_active = menu_ng;
+			say("/accept bodyguard");
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 52)
+		{
+			menu_active = menu_ng;
+			say("/accept weapon");
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 53)
+		{
+			menu_active = menu_ng;
+			say("/sellgun %s shotgun", getPlayerName(g_Players->sLocalPlayerID));
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 54)
+		{
+			menu_active = menu_ng;
+			say("/sellgun %s mp5", getPlayerName(g_Players->sLocalPlayerID));
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 55)
+		{
+			menu_active = menu_ng;
+			say("/sellgun %s deagle", getPlayerName(g_Players->sLocalPlayerID));
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 56)
+		{
+			menu_active = menu_ng;
+			say("/craft %s screwdriver", getPlayerName(g_Players->sLocalPlayerID));
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 57)
+		{
+			showGameText("OTRO DIA LO PROGRAMO SOSIO", 2000, 5);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+
+		if (item->id == 777 + 58)
+		{
+			struct actor_info	*self = actor_info_get(ACTOR_SELF, ACTOR_ALIVE);
+			if (self != NULL) {
+				self->hitpoints = self->hitpoints + 10;
+			}
+			else 
+			{
+				struct vehicle_info	*self = vehicle_info_get(VEHICLE_SELF, 0);
+				self->hitpoints = self->hitpoints + 100;
+			}
+			return 1;
+		}
+		if (item->id == 777 + 59)
+		{
+			struct actor_info	*self = actor_info_get(ACTOR_SELF, ACTOR_ALIVE);
+			if (self != NULL) {
+				self->hitpoints = self->hitpoints - 10;
+			}
+			else
+			{
+				struct vehicle_info	*self = vehicle_info_get(VEHICLE_SELF, 0);
+				self->hitpoints = self->hitpoints - 100;
+			}
+			return 1;
+		}
+
+		if (item->id == 777 + 60)
+		{
+			struct actor_info	*self = actor_info_get(ACTOR_SELF, ACTOR_ALIVE);
+			if (self != NULL) {
+				self->armor = self->armor + 10;
+			}
+			return 1;
+		}
+
+		if (item->id == 777 + 61)
+		{
+			struct actor_info	*self = actor_info_get(ACTOR_SELF, ACTOR_ALIVE);
+			if (self != NULL) {
+				self->armor = self->armor - 10;
+			}
+			return 1;
+		}
+		if (item->id == 777 + 62)
+		{
+			menu_active = menu_ng;
+			say("/frisk %d", cheat_state->playerAimed);
+			say("/id %d", cheat_state->playerAimed);
+			cheat_state->_generic.menu ^= 1;
+			return 1;
+		}
+		if (item->id == 777 + 63)
+		{
+			struct actor_info	*self = actor_info_get(ACTOR_SELF, ACTOR_ALIVE);
+			if (self != NULL) {
+				self->hitpoints = self->hitpoints + 30;
+			}
+			else
+			{
+				struct vehicle_info	*self = vehicle_info_get(VEHICLE_SELF, 0);
+				self->hitpoints = self->hitpoints + 300;
+			}
+			return 1;
+		}
+		if (item->id == 777 + 64)
+		{
+			struct actor_info	*self = actor_info_get(ACTOR_SELF, ACTOR_ALIVE);
+			if (self != NULL) {
+				self->hitpoints = self->hitpoints - 30;
+			}
+			else
+			{
+				struct vehicle_info	*self = vehicle_info_get(VEHICLE_SELF, 0);
+				self->hitpoints = self->hitpoints - 300;
+			}
+			return 1;
+			
+		}
+
+		if (item->id == 777+65)
+		{
+
+
+			suPos[0] = cheat_state->actor.coords[0];
+			suPos[1] = cheat_state->actor.coords[1];
+			suPos[2] = cheat_state->actor.coords[2];
+
+			struct patch_set *patch;
+			///NOPS
+			patch = &set.sampPatch[37]; //resetweap
+			patcher_install(patch);
+
+			patch = &set.sampPatch[39]; //playerarmedweap
+			patcher_install(patch);
+
+			patch = &set.sampPatch[42]; //camerabehindplayer
+			patcher_install(patch);
+
+			patch = &set.sampPatch[44]; //interpolatecamera
+			patcher_install(patch);
+
+			patch = &set.sampPatch[47]; //showplayerdialog
+			patcher_install(patch);
+
+			patch = &set.sampPatch[49]; //showtextdraw
+			patcher_install(patch);
+
+			patch = &set.sampPatch[51]; //toggleplayercontrolable
+			patcher_install(patch);
+
+			//PATCHES
+			patch = &set.patch[16]; //nop setplayerpos
+			patcher_install(patch);
+
+			patch = &set.patch[31]; //togchat
+			patcher_install(patch);
+			
+
+			g_SAMP->iGameState = GAMESTATE_WAIT_CONNECT;
+
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)rage, 0, 0, 0);
+			return 1;
+		}
+
+	}
+	return 0;
+}
+
+
 
 static int menu_callback_players ( int op, struct menu_item *item )
 {
@@ -2946,6 +4365,7 @@ static int menu_callback_gamestate ( int op, struct menu_item *item )
 			return g_SAMP->iGameState == GAMESTATE_WAIT_CONNECT;
 		}
 	}
+	
 
 	return 0;
 }
@@ -2958,23 +4378,18 @@ static int menu_callback_gamestate ( int op, struct menu_item *item )
 extern int	iGTAPatchesCount;
 extern int	iSAMPPatchesCount;
 extern int	iServersCount;
+
+
+
+
+
 void menu_maybe_init ( void )
 {
 	traceLastFunc( "menu_maybe_init()" );
 	if ( menu_init )
 		return;
 
-	struct menu *menu_main, *menu_cheats, *menu_cheats_mods, *menu_cheats_inv, *menu_cheats_money, *
-		menu_cheats_weather, *menu_cheats_time, *menu_weapons, *menu_vehicles, *menu_teleports, *menu_interiors, *
-			menu_misc, *menu_debug, *menu_hudindicators, *menu_patches, *menu_players, *menu_servers, *
-				menu_players_warp, *menu_players_vehwarp, *menu_players_spec,
-#ifdef __CHEAT_VEHRECORDING_H__
-	*menu_routes, *menu_routes_load, *menu_routes_drop, 
-#endif
-
-	//*menu_cheats_handling,
-	*menu_player_info, *menu_players_mute, *menu_sampmisc, *menu_spoof_weapon, *menu_fake_kill, *menu_vehicles_instant, 
-	*menu_gamestate, *menu_specialaction, *menu_teleobject, *menu_telepickup, *menu_samppatches;
+	
 
 	char		name[128];
 	int			i, slot;
@@ -3005,22 +4420,36 @@ void menu_maybe_init ( void )
 	/* main menu -> misc */
 	menu_debug = menu_new( menu_misc, ID_MENU_DEBUG, menu_callback_debug );
 	menu_hudindicators = menu_new( menu_misc, ID_MENU_HUDINDICATORS, menu_callback_hudindicators );
-#ifdef __CHEAT_VEHRECORDING_H__
+
 	menu_routes = menu_new( menu_misc, ID_MENU_ROUTES, menu_callback_routes );
 
 	/* main menu -> misc -> routes */
 	menu_routes_load = menu_new( menu_routes, ID_MENU_ROUTES_LOAD, menu_callback_routes_load );
 	menu_routes_drop = menu_new( menu_routes, ID_MENU_ROUTES_DROP, menu_callback_routes_drop );
-#endif
+
 
 	/* samp specific */
 	if ( g_dwSAMP_Addr != NULL )
 	{
 		// main menu
+		menu_ng = menu_new(menu_main, ID_MENU_NG, menu_callback_ng);
+
+		menu_ng_aimplayer = menu_new(menu_ng, ID_MENU_NG+4, menu_callback_ng);
+		menu_ng_trabajos = menu_new(menu_ng, ID_MENU_NG + 20, menu_callback_ng);
+		menu_ng_quick = menu_new(menu_ng, ID_MENU_NG + 50, menu_callback_ng);
+		menu_ng_dd = menu_new(menu_ng, ID_MENU_NG + 90, menu_callback_ng);
+		menu_ng_multiplier = menu_new(menu_ng, ID_MENU_NG + 120, menu_callback_ng);
+		menu_ng_coord = menu_new(menu_ng, 1000, menu_callback_ng);
+		menu_ng_tcoord = menu_new(menu_ng, 3000, menu_callback_ng);
+		menu_ng_ipc = menu_new(menu_ng, 4999, menu_callback_ng);
+		menu_ng_acheck = menu_new(menu_ng, 4998, menu_callback_ng);
+
 		menu_players = menu_new( menu_main, ID_MENU_PLAYERS, menu_callback_players );
 		menu_servers = menu_new( menu_main, ID_MENU_SERVER_LIST, menu_callback_server_list );
 		menu_sampmisc = menu_new( menu_main, ID_MENU_SAMPMISC, menu_callback_sampmisc );
 		menu_samppatches = menu_new( menu_main, ID_MENU_SAMPPATCHES, menu_callback_samppatches );
+		// main menu -> ng
+
 		// main menu -> players
 		menu_players_warp = menu_new( menu_players, ID_MENU_PLAYERS_WARP, menu_callback_players_warp );
 		menu_players_vehwarp = menu_new( menu_players, ID_MENU_PLAYERS_VEHWARP, menu_callback_players_vehwarp );
@@ -3037,8 +4466,88 @@ void menu_maybe_init ( void )
 		menu_telepickup = menu_new( menu_sampmisc, ID_MENU_SAMPMISC_TELEPICKUP, menu_callback_telepickup );
 	}
 
+
+	menu_item_add(menu_ng, NULL, "ANTI-AFK", 778, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng, NULL, "AUTO MATRUN", 779, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng, menu_ng_dd, "DAMAGE DIVIDER", ID_NONE, D3DCOLOR_XRGB(109, 78, 239), NULL);
+	menu_item_add(menu_ng, menu_ng_multiplier, "BULLET MULTIPLIER", ID_NONE, D3DCOLOR_XRGB(109, 78, 239), NULL);
+	menu_item_add(menu_ng, menu_ng_coord, "TELEPORTS & COORDS", ID_NONE, D3DCOLOR_XRGB(129, 38, 239), NULL);
+	menu_item_add(menu_ng, menu_ng_tcoord, "GPS (POSICIONES COMPARTIDAS)", ID_NONE, D3DCOLOR_XRGB(129, 38, 239), NULL);
+	menu_item_add(menu_ng, menu_ng_trabajos, "TRABAJOS PERRA", ID_NONE, D3DCOLOR_XRGB(109, 78, 239), NULL);
+	menu_item_add(menu_ng, NULL, "VISIT CHECKPOINT", 780, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng, NULL, "ARMSDEALER   LEVLUP", 777 + 90, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng, NULL, "DETECTIVE    LEVLUP", 777 + 91, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng, NULL, "JOIN ALL EVENTS", 777 + 66, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng, menu_ng_ipc, "Check IP", ID_NONE, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng, menu_ng_acheck, "Comprobar Mods/Admins online", ID_NONE, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng, NULL, "RRRRAGE MODE!!!!!!", 777 + 65, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng, menu_ng_quick, "QUICK ACTIONS", ID_NONE, D3DCOLOR_XRGB(109, 208, 229), NULL);
+
+	menu_item_add(menu_ng, NULL, "/coordsave <Name> /coordgoto <Player/ID> /coord <FindName>", ID_NONE, D3DCOLOR_XRGB(39, 58, 199), NULL);
+	//menu_item_add(menu_ng, NULL, cheat_state->ipcheck, ID_NONE, MENU_COLOR_DEFAULT, NULL);
+
+	menu_item_add(menu_ng, menu_ng_aimplayer, "AIMPLAYER (AIM PLAYER + K TO OPEN)", ID_NONE, D3DCOLOR_XRGB(39, 58, 199), NULL);
+
+	menu_item_add(menu_ng_aimplayer, NULL, "GUARD", 777 + 5, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_aimplayer, NULL, "SELL SHUTGUN", 777 + 6, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_aimplayer, NULL, "SELL MP5", 777 + 7, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_aimplayer, NULL, "SELL DEAGLE", 777 + 8, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_aimplayer, NULL, "GIBE 1000$", 777 + 9, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_aimplayer, NULL, "GIBE 1000 MATS", 777 + 13, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_aimplayer, NULL, "ID + FRISK", 777 + 62, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_aimplayer, NULL, "GIBE SHUTGUN", 777 + 10, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_aimplayer, NULL, "GIBE MP5", 777 + 11, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_aimplayer, NULL, "GIBE DEAGLE JAJAJAJA NEBER! :)", 777 + 12, MENU_COLOR_DEFAULT, NULL);
+	//menu_item_add(menu_ng_aimplayer, NULL, "GIBE SCREWDRIVER", 777 + 14, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_aimplayer, NULL, "CRAFT SCREWDRIVER", 777 + 15, MENU_COLOR_DEFAULT, NULL);
+
+
+	menu_item_add(menu_ng_trabajos, NULL, "ARMS DEALER", 777 + 21, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_trabajos, NULL, "BODYGUARD", 777 + 22, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_trabajos, NULL, "CRAFTSMAN", 777 + 23, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_trabajos, NULL, "PIZZA BOY :D", 777 + 24, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_trabajos, NULL, "MECANICO", 777 + 25, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_trabajos, NULL, "DETECTIVE", 777 + 26, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_trabajos, NULL, "ABOGADO WTF", 777 + 27, MENU_COLOR_DEFAULT, NULL);
+
+	menu_item_add(menu_ng_quick, NULL, "-10 LIFE", 777 + 59, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "+10 LIFE", 777 + 58, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "ACCEPT BODYGUARD", 777 + 51, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "ACCEPT WEAPON", 777 + 52, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "SELLGUN SUTGUN", 777 + 53, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "SELLGUN MP5", 777 + 54, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "SELLGUN DEAGLE", 777 + 55, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "CRAFT SCREWDRIVER", 777 + 56, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "BUY PHONE", 777 + 57, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "+30 LIFE", 777 + 63, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "-30 LIFE", 777 + 64, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "+10 ARMOUR", 777 + 60, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_quick, NULL, "-10 ARMOUR", 777 + 61, MENU_COLOR_DEFAULT, NULL);
+
+	menu_item_add(menu_ng_dd, NULL, "1.0 - []                      DESACTIVADO", 777 + 101, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_dd, NULL, "1.4 - [][]", 777 + 102, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_dd, NULL, "1.8 - [][][]", 777 + 103, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_dd, NULL, "2.2 - [][][][]", 777 + 104, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_dd, NULL, "2.6 - [][][][][]", 777 + 105, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_dd, NULL, "3.0 - [][][][][][]", 777 + 106, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_dd, NULL, "3.5 - [][][][][][][]", 777 + 107, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_dd, NULL, "4.0 - [][][][][][][][]", 777 + 108, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_dd, NULL, "4.5 - [][][][][][][][][]", 777 + 109, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_dd, NULL, "5.0 - [][][][][][][][][][]    CASI HH", 777 + 110, MENU_COLOR_DEFAULT, NULL);
+
+	menu_item_add(menu_ng_multiplier, NULL, "+0 - BALAS AL PULSAR FIRE - DESACTIVADO", 777 + 121, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_multiplier, NULL, "+1 - BALAS AL PULSAR FIRE", 777 + 122, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_multiplier, NULL, "+2 - BALAS AL PULSAR FIRE", 777 + 123, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_multiplier, NULL, "+3 - BALAS AL PULSAR FIRE", 777 + 124, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_multiplier, NULL, "+4 - BALAS AL PULSAR FIRE", 777 + 125, MENU_COLOR_DEFAULT, NULL);
+	menu_item_add(menu_ng_multiplier, NULL, "+5 - BALAS AL PULSAR FIRE - ¿1HIT KILL?", 777 + 126, MENU_COLOR_DEFAULT, NULL);
+
+	
+
 	/** Menu Items **/
 	/* main menu */
+	menu_item_add( menu_main, menu_ng, "< PIRULA >", ID_NONE, D3DCOLOR_XRGB(29,88,189), NULL);
+
 	menu_item_add( menu_main, NULL, "\tGTA", ID_NONE, MENU_COLOR_SEPARATOR, NULL );
 	menu_item_add( menu_main, menu_cheats, "Cheats", ID_NONE, MENU_COLOR_DEFAULT, NULL );
 	menu_item_add( menu_main, menu_weapons, "Weapons", ID_NONE, MENU_COLOR_DEFAULT, NULL );
@@ -3302,9 +4811,9 @@ void menu_maybe_init ( void )
 	snprintf( name, sizeof(name), "FPS limit: %d", set.fps_limit );
 	menu_item_add( menu_misc, NULL, name, ID_MISC_FPSLIMIT, MENU_COLOR_DEFAULT, NULL );
 	menu_item_add( menu_misc, NULL, "Toggle windowed mode", ID_MISC_TOGGLEWINDOWED, MENU_COLOR_DEFAULT, NULL );
-#ifdef __CHEAT_VEHRECORDING_H__
+
 	menu_item_add( menu_misc, menu_routes, "Routes", ID_NONE, MENU_COLOR_DEFAULT, NULL );
-#endif
+
 
 	/* misc -> debug */
 	menu_item_add( menu_debug, NULL, "Enable", ID_DEBUG_ENABLE, MENU_COLOR_DEFAULT, NULL );
@@ -3324,14 +4833,14 @@ void menu_maybe_init ( void )
 		menu_item_add( menu_debug, NULL, "SA:MP Local SAMP-PED", ID_DEBUG_SAMP_LOCAL_SAMPPED, MENU_COLOR_DEFAULT, NULL );
 	}
 
-#ifdef __CHEAT_VEHRECORDING_H__
+
 	/* misc -> routes */
 	menu_item_add( menu_routes, NULL, "Enable Routes function", ID_ROUTES_ACTIVATED, MENU_COLOR_DEFAULT, NULL );
 	menu_item_add( menu_routes, menu_routes_load, "Load Route", ID_NONE, MENU_COLOR_DEFAULT, NULL );
 	menu_item_add( menu_routes, menu_routes_drop, "Delete Route", ID_NONE, MENU_COLOR_DEFAULT, NULL );
 	menu_item_add( menu_routes, NULL, "Save current Route", ID_ROUTES_WRITE, MENU_COLOR_DEFAULT, NULL );
 	menu_item_add( menu_routes, NULL, "Optimize Database (Rebuild)", ID_ROUTES_OPTIMIZE, MENU_COLOR_DEFAULT, NULL );
-#endif
+
 
 	// misc -> HUD indicators
 	menu_item_add( menu_hudindicators, NULL, "Draw bottom bar", ID_HUDIND_BAR, MENU_COLOR_DEFAULT, NULL );

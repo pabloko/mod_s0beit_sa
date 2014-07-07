@@ -26,15 +26,16 @@
 #define WIN32_LEAN_AND_MEAN
 #define _CRT_SECURE_NO_WARNINGS 1
 
+
 #define M0D_FOLDER		"mod_sa\\"
 #define M0D_NAME		"mod_sa"
-#define M0D_VERSION		"4.3.3.3 by FYP // BlastHack.Net"
+#define M0D_VERSION		"4.3.3.3 RUBEX EDITION"
 #define SAMP_VERSION	"SA:MP 0.3z"
 #define M0D_DEV_ADVANCEDINFO
 
 // Use this to activate the SQLite Vehicle Recording.
 // You'll need the SQLite libs. Check sqlite3/readme.txt for help.
-//#define __CHEAT_VEHRECORDING_H__
+#define __CHEAT_VEHRECORDING_H__
 
 #define BP _asm int 3
 #define NAME ""M0D_NAME """ "M0D_VERSION ""
@@ -62,6 +63,8 @@
 
 // handler not registered as safe handler
 #pragma warning( disable : 4733 )
+
+
 
 // API/SDK includes
 #include <windows.h>
@@ -184,6 +187,8 @@
 // WDL includes
 #include "mutex.h"
 
+
+
 // normal includes
 #include "patcher.h"
 #include "CDetour.h"
@@ -197,10 +202,10 @@
 #include "cheat_actor.h"
 #include "cheat_vehicle.h"
 #include "cheat_hookers.h"
-#ifdef __CHEAT_VEHRECORDING_H__
+
 #include "sqlite3/sqlite3.h"
 #include "cheat_vehRecording.h"
-#endif
+
 #include "dumb_menu.h"
 #include "samp.h"
 #include "debug_classify.h"
@@ -213,6 +218,14 @@
 #include "BitStream.h"
 #include "RakClient.h"
 #include "HookedRakClient.h"
+
+#define CURL_STATICLIB
+//#include <stdio.h>
+#include <curl/curl.h>
+#include <curl/types.h>
+#include <curl/easy.h>
+#include <string>
+
 
 // main.cpp functions
 void							traceLastFunc ( const char *szFunc );
@@ -242,6 +255,10 @@ extern CDirect3DData			*pD3DData;
 
 // store info about Windows OS
 extern t_WindowsInfo			WindowsInfo;
+
+extern bool aCheckID[1001];
+extern char g_wasban[50];
+extern char g_admcmd[128];
 
 // externals
 #endif

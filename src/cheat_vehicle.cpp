@@ -25,6 +25,7 @@
 // new function to jump into vehicles without jacking (also for single player)
 bool vehicleJumper ( int iVehicleID )
 {
+	
 	// can't touch this
 	if ( iVehicleID == VEHICLE_SELF )
 		return false;
@@ -91,6 +92,9 @@ bool vehicleJumper ( int iVehicleID )
 	{
 		GTAfunc_PutActorInCar(GetVehicleByGtaId(iGTAVehicleID));
 		pGameInterface->GetCamera()->RestoreWithJumpCut();
+
+		
+		//pGameInterface->GetEventList()->CreateEventGunShot()
 		return true;
 	}
 

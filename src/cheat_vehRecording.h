@@ -23,7 +23,7 @@
 
 #pragma once
 
-#ifdef __CHEAT_VEHRECORDING_H__
+
 #pragma comment (lib, "sqlite3/sqlite3.lib")
 
 enum eRecordingState
@@ -54,4 +54,3 @@ bool rec_sqlite_dropTable ( char *tableName );
 bool rec_sqlite_writeTable ();
 bool rec_sqlite_optimizeDatabase ();
 void cheat_handle_vehicle_recording ( struct vehicle_info *info, float time_diff );
-#endif

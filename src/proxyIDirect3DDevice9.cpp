@@ -60,10 +60,10 @@ CD3DRender				*render = new CD3DRender( 128 );
 // create font objects
 
 // also HUD somehow, the HUD comment below isn't totally right
-CD3DFont				*pD3DFont = new CD3DFont( "Tahoma", 10, FCR_BORDER );
+CD3DFont				*pD3DFont = new CD3DFont( "Verdana", 10, FCR_BORDER );
 
 //pd3dFont_sampStuff = player info list, player score list, player ESP
-CD3DFont				*pD3DFont_sampStuff = new CD3DFont( "Tahoma", 10, FCR_BORDER );
+CD3DFont				*pD3DFont_sampStuff = new CD3DFont( "Verdana", 10, FCR_BORDER );
 
 //pD3DFontFixed = cheat_state_msg, HUD
 CD3DFont				*pD3DFontFixed = new CD3DFont( "Small Fonts", 8, FCR_BORDER );
@@ -78,8 +78,8 @@ CD3DFont				*pD3DFontChat = new CD3DFont( "Tahoma", 11, FCR_BOLD | FCR_BORDER );
 //pD3DFontDebugWnd = debug window
 CD3DFont				*pD3DFontDebugWnd = new CD3DFont("Lucida Console", 8, FCR_BORDER );
 
-#define MENU_ROWS					12
-#define MENU_WIDTH					400
+#define MENU_ROWS					14
+#define MENU_WIDTH					500
 #define IS_SCOREBOARD_TOGGLED_ON	*(int *)( *(DWORD *)( g_dwSAMP_Addr + SAMP_SCOREBOARD_INFO ) ) == 1
 
 struct gui				*hud_bar = &set.guiset[0];
@@ -218,7 +218,7 @@ static void mmm_yummy_poop ( const void *info, int *enabled, int *prev_enabled, 
 		}
 		else if ( *prev_enabled && !*enabled )
 		{
-			cheat_state_text( "Switched to s0beit %s", teh_name );
+			//cheat_state_text( "Switched to s0beit %s", teh_name );
 			*render = 1;
 		}
 		else if ( !*prev_enabled && *enabled )
@@ -904,6 +904,8 @@ struct playerTagInfo
 	bool	isPastMaxDistance;
 } g_playerTagInfo[SAMP_PLAYER_MAX];
 
+int tickcounter = 0;
+
 // new "Air Ride" player ESP by nuckfuts
 // this is optimized to all hell, so please don't
 // mess with it unless you completely understand it
@@ -916,11 +918,11 @@ void renderPlayerTags ( void )
 		return;
 
 	// Exit this function and enable samp nametags, if panic key
-	if ( cheat_state->_generic.cheat_panic_enabled || !cheat_state->render_player_tags )
+	if ( cheat_state->_generic.cheat_panic_enabled )
 	{
 		if ( g_dwSAMP_Addr && g_SAMP )
 		{
-			sampPatchDisableNameTags( 0 );
+				sampPatchDisableNameTags( 0 );
 		}
 		return;
 	}
@@ -940,7 +942,10 @@ void renderPlayerTags ( void )
 		}
 
 		// Disable samp Nametags
-		sampPatchDisableNameTags( 1 );
+		if (cheat_state->render_player_tags)
+			sampPatchDisableNameTags(1);
+		else
+			sampPatchDisableNameTags(0);
 	}
 
 	// don't run if the CGameSA doesn't exist
@@ -1060,199 +1065,199 @@ void renderPlayerTags ( void )
 
 	// reset iter position & setup iterInner
 	iter = pPools->m_pedPool.map.begin();
+	if (cheat_state->render_player_tags) {
+		CPedSA	*iterInnerPed = NULL;
+		CPoolsSA::pedPool_t::mapType::iterator iterInner;
 
-	CPedSA	*iterInnerPed = NULL;
-	CPoolsSA::pedPool_t::mapType::iterator iterInner;
-
-	// remove staircase problem
-	while ( iter.pos < iter.end )
-	{
-		// map iterator pointer to our pointer
-		iterPed = iter.pos->second;
-
-		// advance to next item for next pass
-		iter.pos++;
-		if ( !iterPed )
-			continue;
-
-		// get player id
-		iGTAID = (int)iterPed->GetArrayID();
-
-		// ignore if it's us
-		if ( iGTAID == selfGTAID )
-			continue;
-
-		// filter out "ok" ESP
-		if ( g_playerTagInfo[iGTAID].isPastMaxDistance
-			||	!g_playerTagInfo[iGTAID].isStairStacked
-				&& g_playerTagInfo[iGTAID].tagOffsetY < 40.0f
-			)
-			continue;
-
-		// detect stair stacking per frame if ESP isn't already stair stacked
-		if ( !g_playerTagInfo[iGTAID].isStairStacked )
+		// remove staircase problem
+		while (iter.pos < iter.end)
 		{
+			// map iterator pointer to our pointer
+			iterPed = iter.pos->second;
+
+			// advance to next item for next pass
+			iter.pos++;
+			if (!iterPed)
+				continue;
+
+			// get player id
+			iGTAID = (int)iterPed->GetArrayID();
+
+			// ignore if it's us
+			if (iGTAID == selfGTAID)
+				continue;
+
+			// filter out "ok" ESP
+			if (g_playerTagInfo[iGTAID].isPastMaxDistance
+				|| !g_playerTagInfo[iGTAID].isStairStacked
+				&& g_playerTagInfo[iGTAID].tagOffsetY < 40.0f
+				)
+				continue;
+
+			// detect stair stacking per frame if ESP isn't already stair stacked
+			if (!g_playerTagInfo[iGTAID].isStairStacked)
+			{
+				// reset iterInner position
+				iterInner = pPools->m_pedPool.map.begin();
+				while (iterInner.pos < iterInner.end)
+				{
+					// map iterator pointer to our pointer
+					iterInnerPed = iterInner.pos->second;
+
+					// advance to next item for next pass
+					iterInner.pos++;
+					if (!iterInnerPed)
+						continue;
+
+					// get player id
+					iGTAID_Inner = (int)iterInnerPed->GetArrayID();
+
+					// ignore if it's us or isPastMaxDistance
+					if (g_playerTagInfo[iGTAID_Inner].isPastMaxDistance || iGTAID_Inner == iGTAID)
+						continue;
+
+					// test to see who comes out on top
+					if (abs(g_playerTagInfo[iGTAID].tagPosition.fX - g_playerTagInfo[iGTAID_Inner].tagPosition.fX) <= 100.0f
+						&&	 abs((g_playerTagInfo[iGTAID].tagPosition.fY - (g_playerTagInfo[iGTAID].tagOffsetY / 2.0f)) - (g_playerTagInfo[iGTAID_Inner].tagPosition.fY - g_playerTagInfo[iGTAID_Inner].tagOffsetY)) <= ESP_tag_player_espHeight)
+					{
+						isPedESPStairStacked[iGTAID] = false;
+					}
+				}
+
+				// setup stair stack variables needed to un stack the ESP
+				if (isPedESPStairStacked[iGTAID])
+				{
+					g_playerTagInfo[iGTAID].isStairStacked = true;
+					g_playerTagInfo[iGTAID].stairStackedOffset = g_playerTagInfo[iGTAID].tagOffsetY / 2.0f;
+				}
+			}	// end inner while - detect stair stacking
+
+			// lower the offsets for stair stacked ESP
+			// and turn off stack status of ESP that reaches the "available" offset
+			if (g_playerTagInfo[iGTAID].isStairStacked)
+			{
+				g_playerTagInfo[iGTAID].tagOffsetY -= 5.0f;
+				g_playerTagInfo[iGTAID].stairStackedOffset -= 5.0f;
+				if (g_playerTagInfo[iGTAID].stairStackedOffset < 5.0f)
+				{
+					g_playerTagInfo[iGTAID].stairStackedOffset = 0.0f;
+					g_playerTagInfo[iGTAID].isStairStacked = false;
+				}
+			}
+		}		// end outer while - remove staircase problem
+
+		// reset iter position & setup iterInner
+		iter = pPools->m_pedPool.map.begin();
+
+		// detect & adjust for ESP collisions
+		while (iter.pos < iter.end)
+		{
+			// map iterator pointer to our pointer
+			iterPed = iter.pos->second;
+
+			// advance to next item for next pass
+			iter.pos++;
+			if (!iterPed)
+				continue;
+
+			// get player id
+			iGTAID = (int)iterPed->GetArrayID();
+
+			// we isPastMaxDistance or stairstacked, move along
+			if (g_playerTagInfo[iGTAID].isPastMaxDistance || g_playerTagInfo[iGTAID].isStairStacked)
+				continue;
+
 			// reset iterInner position
 			iterInner = pPools->m_pedPool.map.begin();
-			while ( iterInner.pos < iterInner.end )
+			while (iterInner.pos < iterInner.end)
 			{
 				// map iterator pointer to our pointer
 				iterInnerPed = iterInner.pos->second;
 
 				// advance to next item for next pass
 				iterInner.pos++;
-				if ( !iterInnerPed )
+				if (!iterInnerPed)
 					continue;
 
 				// get player id
 				iGTAID_Inner = (int)iterInnerPed->GetArrayID();
 
-				// ignore if it's us or isPastMaxDistance
-				if ( g_playerTagInfo[iGTAID_Inner].isPastMaxDistance || iGTAID_Inner == iGTAID )
-					continue;
+				// filter out isPastMaxDistance, stairstacked, and same Ped
+				if (g_playerTagInfo[iGTAID].isPastMaxDistance
+					|| g_playerTagInfo[iGTAID_Inner].isStairStacked
+					|| iGTAID == iGTAID_Inner) continue;
 
-				// test to see who comes out on top
-				if ( abs(g_playerTagInfo[iGTAID].tagPosition.fX - g_playerTagInfo[iGTAID_Inner].tagPosition.fX) <= 100.0f
-				 &&	 abs((g_playerTagInfo[iGTAID].tagPosition.fY - (g_playerTagInfo[iGTAID].tagOffsetY / 2.0f)) - (g_playerTagInfo[iGTAID_Inner].tagPosition.fY - g_playerTagInfo[iGTAID_Inner].tagOffsetY)) <= ESP_tag_player_espHeight )
+				// player is within range, figure out if there's collision
+				if (abs(g_playerTagInfo[iGTAID].tagPosition.fX - g_playerTagInfo[iGTAID_Inner].tagPosition.fX) <= 100.0f
+					&&	 abs((g_playerTagInfo[iGTAID].tagPosition.fY - g_playerTagInfo[iGTAID].tagOffsetY) - (
+					g_playerTagInfo[iGTAID_Inner].tagPosition.fY - g_playerTagInfo[iGTAID_Inner].tagOffsetY)) <= ESP_tag_player_espHeight)
 				{
-					isPedESPStairStacked[iGTAID] = false;
-				}
-			}
-
-			// setup stair stack variables needed to un stack the ESP
-			if ( isPedESPStairStacked[iGTAID] )
-			{
-				g_playerTagInfo[iGTAID].isStairStacked = true;
-				g_playerTagInfo[iGTAID].stairStackedOffset = g_playerTagInfo[iGTAID].tagOffsetY / 2.0f;
-			}
-		}	// end inner while - detect stair stacking
-
-		// lower the offsets for stair stacked ESP
-		// and turn off stack status of ESP that reaches the "available" offset
-		if ( g_playerTagInfo[iGTAID].isStairStacked )
-		{
-			g_playerTagInfo[iGTAID].tagOffsetY -= 5.0f;
-			g_playerTagInfo[iGTAID].stairStackedOffset -= 5.0f;
-			if ( g_playerTagInfo[iGTAID].stairStackedOffset < 5.0f )
-			{
-				g_playerTagInfo[iGTAID].stairStackedOffset = 0.0f;
-				g_playerTagInfo[iGTAID].isStairStacked = false;
-			}
-		}
-	}		// end outer while - remove staircase problem
-
-	// reset iter position & setup iterInner
-	iter = pPools->m_pedPool.map.begin();
-
-	// detect & adjust for ESP collisions
-	while ( iter.pos < iter.end )
-	{
-		// map iterator pointer to our pointer
-		iterPed = iter.pos->second;
-
-		// advance to next item for next pass
-		iter.pos++;
-		if ( !iterPed )
-			continue;
-
-		// get player id
-		iGTAID = (int)iterPed->GetArrayID();
-
-		// we isPastMaxDistance or stairstacked, move along
-		if ( g_playerTagInfo[iGTAID].isPastMaxDistance || g_playerTagInfo[iGTAID].isStairStacked )
-			continue;
-
-		// reset iterInner position
-		iterInner = pPools->m_pedPool.map.begin();
-		while ( iterInner.pos < iterInner.end )
-		{
-			// map iterator pointer to our pointer
-			iterInnerPed = iterInner.pos->second;
-
-			// advance to next item for next pass
-			iterInner.pos++;
-			if ( !iterInnerPed )
-				continue;
-
-			// get player id
-			iGTAID_Inner = (int)iterInnerPed->GetArrayID();
-
-			// filter out isPastMaxDistance, stairstacked, and same Ped
-			if ( g_playerTagInfo[iGTAID].isPastMaxDistance
-			 ||	 g_playerTagInfo[iGTAID_Inner].isStairStacked
-			 ||	 iGTAID == iGTAID_Inner ) continue;
-
-			// player is within range, figure out if there's collision
-			if ( abs(g_playerTagInfo[iGTAID].tagPosition.fX - g_playerTagInfo[iGTAID_Inner].tagPosition.fX) <= 100.0f
-			 &&	 abs((g_playerTagInfo[iGTAID].tagPosition.fY - g_playerTagInfo[iGTAID].tagOffsetY) - (
-						  g_playerTagInfo[iGTAID_Inner].tagPosition.fY - g_playerTagInfo[iGTAID_Inner].tagOffsetY)) <= ESP_tag_player_espHeight )
-			{
-				// collision, figure out who gets to stay
-				if ( g_playerTagInfo[iGTAID].tagPosition.fZ < g_playerTagInfo[iGTAID_Inner].tagPosition.fZ )
-				{
-					// playerID "g_pTI_i" is farther, it should move up
-					g_playerTagInfo[iGTAID_Inner].tagOffsetY += 5.0f;
-					isPedESPCollided[iGTAID_Inner] = true;
-				}
-				else if ( g_playerTagInfo[iGTAID].tagPosition.fZ > g_playerTagInfo[iGTAID_Inner].tagPosition.fZ )
-				{
-					// playerID "i" is farther, it should move up
-					// we should only need normal upward movement here
-					g_playerTagInfo[iGTAID].tagOffsetY += 5.0f;
-					isPedESPCollided[iGTAID] = true;
-				}
-				else
-				{
-					// both playerIDs are the same position @_@ so prefer the lower ID#
-					if ( iGTAID < iGTAID_Inner )
+					// collision, figure out who gets to stay
+					if (g_playerTagInfo[iGTAID].tagPosition.fZ < g_playerTagInfo[iGTAID_Inner].tagPosition.fZ)
 					{
+						// playerID "g_pTI_i" is farther, it should move up
 						g_playerTagInfo[iGTAID_Inner].tagOffsetY += 5.0f;
+						isPedESPCollided[iGTAID_Inner] = true;
+					}
+					else if (g_playerTagInfo[iGTAID].tagPosition.fZ > g_playerTagInfo[iGTAID_Inner].tagPosition.fZ)
+					{
+						// playerID "i" is farther, it should move up
+						// we should only need normal upward movement here
+						g_playerTagInfo[iGTAID].tagOffsetY += 5.0f;
+						isPedESPCollided[iGTAID] = true;
+					}
+					else
+					{
+						// both playerIDs are the same position @_@ so prefer the lower ID#
+						if (iGTAID < iGTAID_Inner)
+						{
+							g_playerTagInfo[iGTAID_Inner].tagOffsetY += 5.0f;
+							isPedESPCollided[iGTAID_Inner] = true;
+						}
+						else
+						{
+							g_playerTagInfo[iGTAID].tagOffsetY += 5.0f;
+							isPedESPCollided[iGTAID] = true;
+						}
+					}
+				}
+
+				// are we jigglin?  everybody likes ta jiggle.
+				if (abs(g_playerTagInfo[iGTAID].tagPosition.fX - g_playerTagInfo[iGTAID_Inner].tagPosition.fX) <= 100.0f
+					&& abs(
+					(g_playerTagInfo[iGTAID].tagPosition.fY - g_playerTagInfo[iGTAID].tagOffsetY)
+					- (g_playerTagInfo[iGTAID_Inner].tagPosition.fY - g_playerTagInfo[iGTAID_Inner].tagOffsetY)
+					) - 5.0f <= ESP_tag_player_espHeight
+					)
+				{
+					if (g_playerTagInfo[iGTAID].tagPosition.fZ < g_playerTagInfo[iGTAID_Inner].tagPosition.fZ)
+					{
 						isPedESPCollided[iGTAID_Inner] = true;
 					}
 					else
 					{
-						g_playerTagInfo[iGTAID].tagOffsetY += 5.0f;
 						isPedESPCollided[iGTAID] = true;
 					}
 				}
-			}
+			}	// end inner while
 
-			// are we jigglin?  everybody likes ta jiggle.
-			if (	abs(g_playerTagInfo[iGTAID].tagPosition.fX - g_playerTagInfo[iGTAID_Inner].tagPosition.fX) <= 100.0f
-					&& abs(
-						(g_playerTagInfo[iGTAID].tagPosition.fY - g_playerTagInfo[iGTAID].tagOffsetY)
-						- (g_playerTagInfo[iGTAID_Inner].tagPosition.fY - g_playerTagInfo[iGTAID_Inner].tagOffsetY)
-					) - 5.0f <= ESP_tag_player_espHeight
-				)
+			// return tagOffsetY to zero if needed
+			if (!isPedESPCollided[iGTAID])
 			{
-				if ( g_playerTagInfo[iGTAID].tagPosition.fZ < g_playerTagInfo[iGTAID_Inner].tagPosition.fZ )
+				if (g_playerTagInfo[iGTAID].tagOffsetY >= 5.0f)
 				{
-					isPedESPCollided[iGTAID_Inner] = true;
+					g_playerTagInfo[iGTAID].tagOffsetY -= 5.0f;
 				}
 				else
 				{
-					isPedESPCollided[iGTAID] = true;
+					g_playerTagInfo[iGTAID].tagOffsetY = 0.0f;
 				}
 			}
-		}	// end inner while
-
-		// return tagOffsetY to zero if needed
-		if ( !isPedESPCollided[iGTAID] )
-		{
-			if ( g_playerTagInfo[iGTAID].tagOffsetY >= 5.0f )
-			{
-				g_playerTagInfo[iGTAID].tagOffsetY -= 5.0f;
-			}
-			else
-			{
-				g_playerTagInfo[iGTAID].tagOffsetY = 0.0f;
-			}
-		}
-	}		// end outer while
-
+		}		// end outer while
+	
 	// reset iter position & setup iterInner
-	iter = pPools->m_pedPool.map.begin();
-
+		iter = pPools->m_pedPool.map.begin();
+	}
 	// start render ESP tags
 	float h, playerBaseY;
 	while ( iter.pos < iter.end )
@@ -1316,9 +1321,10 @@ void renderPlayerTags ( void )
 			color = D3DCOLOR_ARGB( 111, 200, 200, 0 );
 		if ( vh < 20.0f && vh > 0.0f )
 			color = D3DCOLOR_ARGB( 111, 200, 0, 0 );
-
+		if (cheat_state->render_player_tags)
 		render->D3DBox( g_playerTagInfo[iGTAID].tagPosition.fX + ESP_tag_player_D3DBox_pixelOffsetX,
 						playerBaseY + ESP_tag_player_D3DBox_pixelOffsetY, 100.0f, 10.0f, D3DCOLOR_ARGB(111, 0, 0, 0) );
+		if (cheat_state->render_player_tags)
 		render->D3DBox( g_playerTagInfo[iGTAID].tagPosition.fX + 1.0f + ESP_tag_player_D3DBox_pixelOffsetX,
 						playerBaseY + 1.0f + ESP_tag_player_D3DBox_pixelOffsetY, vh - 2.0f, 8.0f, color );
 
@@ -1327,8 +1333,10 @@ void renderPlayerTags ( void )
 			if ( va > 100.0f )
 				va = 100.0f;
 			va /= 1.0f;
+			if (cheat_state->render_player_tags)
 			render->D3DBox( g_playerTagInfo[iGTAID].tagPosition.fX + ESP_tag_player_D3DBox_pixelOffsetX,
 							playerBaseY + ESP_tag_player_D3DBox_pixelOffsetY, va - 1.0f, 10.0f, D3DCOLOR_ARGB(111, 0, 0, 0) );
+			if (cheat_state->render_player_tags)
 			render->D3DBox( g_playerTagInfo[iGTAID].tagPosition.fX + 1.0f + ESP_tag_player_D3DBox_pixelOffsetX,
 							playerBaseY + 1.0f + ESP_tag_player_D3DBox_pixelOffsetY, va - 2.0f, 8.0f,
 							D3DCOLOR_ARGB(111, 220, 220, 220) );
@@ -1342,6 +1350,7 @@ void renderPlayerTags ( void )
 		if ( !g_Players )
 		{
 			_snprintf_s( buf, sizeof(buf)-1, "H: %d, A: %d", (int)iterPed->GetHealth(), (int)iterPed->GetArmor() );
+			if (cheat_state->render_player_tags)
 			pD3DFontFixedSmall->PrintShadow( g_playerTagInfo[iGTAID].tagPosition.fX + 8.0f, playerBaseY - h + 10.0f,
 										 D3DCOLOR_ARGB(130, 0xFF, 0x6A, 0), buf );
 		}
@@ -1350,6 +1359,7 @@ void renderPlayerTags ( void )
 			_snprintf_s( buf, sizeof(buf)-1, "H: %d, A: %d",
 						 (int)g_Players->pRemotePlayer[iSAMPID]->pPlayerData->fActorHealth,
 						 (int)g_Players->pRemotePlayer[iSAMPID]->pPlayerData->fActorArmor );
+			if (cheat_state->render_player_tags)
 			pD3DFontFixedSmall->PrintShadow( g_playerTagInfo[iGTAID].tagPosition.fX + 8.0f, playerBaseY - h + 10.0f,
 										 D3DCOLOR_ARGB(130, 0xFF, 0x6A, 0), buf );
 
@@ -1357,20 +1367,54 @@ void renderPlayerTags ( void )
 			// this should calculate the anti-aliasing top edge somehow
 			h = pD3DFont_sampStuff->DrawHeight() - 1;
 			_snprintf_s( buf, sizeof(buf)-1, "%s (%d)", getPlayerName(iSAMPID), iSAMPID );
+			if (cheat_state->render_player_tags)
 			pD3DFont_sampStuff->PrintShadow( g_playerTagInfo[iGTAID].tagPosition.fX, playerBaseY - h,
 				samp_color_get( iSAMPID, 0xDD000000 ), buf );
 
 			if ( g_Players->pRemotePlayer[iSAMPID]->pPlayerData->iAFKState == 2 )
 			{
 				char AFKText[] = "AFK";
+				if (cheat_state->render_player_tags)
 				float w = pD3DFontFixedSmall->DrawLength( AFKText );
 				h = pD3DFontFixedSmall->DrawHeight() + 1;
+				if (cheat_state->render_player_tags)
 				render->D3DBox( g_playerTagInfo[iGTAID].tagPosition.fX + ESP_tag_player_D3DBox_pixelOffsetX + 100.0f + 1.0f,
 					playerBaseY + ESP_tag_player_D3DBox_pixelOffsetY, pD3DFont_sampStuff->DrawLength( AFKText ) + 2.0f, 10.0f, D3DCOLOR_ARGB(111, 0, 0, 0) );
+				if (cheat_state->render_player_tags)
 				pD3DFontFixedSmall->PrintShadow( g_playerTagInfo[iGTAID].tagPosition.fX + ESP_tag_player_D3DBox_pixelOffsetX + 100.0f + 2.0f, playerBaseY - h + 10.0f,
 					D3DCOLOR_ARGB(130, 170, 170, 170), AFKText );
 
 			}
+
+
+			if (iSAMPID == cheat_state->RealAIMID)
+			{
+				char AFKText[] = "AIM";
+				float w = pD3DFontFixedSmall->DrawLength(AFKText);
+				h = pD3DFontFixedSmall->DrawHeight() + 1;
+				render->D3DBox(g_playerTagInfo[iGTAID].tagPosition.fX + ESP_tag_player_D3DBox_pixelOffsetX - 20.0f + 1.0f,
+					playerBaseY + ESP_tag_player_D3DBox_pixelOffsetY - 1.5f, 
+					pD3DFont_sampStuff->DrawLength(AFKText) + 1.2f, 10.0f, D3DCOLOR_ARGB(255, 0, 0, 0));
+				pD3DFontFixedSmall->PrintShadow(g_playerTagInfo[iGTAID].tagPosition.fX + ESP_tag_player_D3DBox_pixelOffsetX - 17.0f + 1.0f, 
+					playerBaseY - h + 8.5f,
+					D3DCOLOR_ARGB(130, 170, 170, 0), AFKText);
+
+			}
+
+			if ( aCheckID[iSAMPID] )
+			{
+				char AFKText[] = "ADMIN";
+				float w = pD3DFontFixedSmall->DrawLength(AFKText);
+				h = pD3DFontFixedSmall->DrawHeight() + 1;
+				render->D3DBox(g_playerTagInfo[iGTAID].tagPosition.fX + ESP_tag_player_D3DBox_pixelOffsetX - 20.0f + 1.0f,
+					playerBaseY + ESP_tag_player_D3DBox_pixelOffsetY - 0.5f,
+					pD3DFont_sampStuff->DrawLength(AFKText) + 1.2f, 10.0f, D3DCOLOR_ARGB(255, 0, 0, 0));
+				pD3DFontFixedSmall->PrintShadow(g_playerTagInfo[iGTAID].tagPosition.fX + ESP_tag_player_D3DBox_pixelOffsetX - 17.0f + 1.0f,
+					playerBaseY - h + 7.5f,
+					D3DCOLOR_ARGB(130, 170, 170, 0), AFKText);
+			}
+
+
 		}
 	}
 
@@ -1508,6 +1552,7 @@ void renderVehicleTags ( void )
 			color_veh = D3DCOLOR_ARGB( 128, 255, 255, 255 );
 
 		// render vehicle name
+		if (cheat_state->render_vehicle_tags)
 		pD3DFontFixed->PrintShadow( screenPosition.fX, screenPosition.fY - h + ESP_tag_vehicle_pixelOffsetY,
 										 color_veh, buf );
 
@@ -1524,18 +1569,36 @@ void renderVehicleTags ( void )
 			vcolor = D3DCOLOR_ARGB( 64, 200, 0, 0 );
 
 		// render health bar
+		if (cheat_state->render_vehicle_tags)
 		render->D3DBox( screenPosition.fX + ESP_tag_vehicle_D3DBox_pixelOffsetX,
 						screenPosition.fY + ESP_tag_vehicle_pixelOffsetY + ESP_tag_vehicle_D3DBox_pixelOffsetY, 100.0f,
 						11.0f, D3DCOLOR_ARGB(48, 0, 0, 0) );
+		if (cheat_state->render_vehicle_tags)
 		render->D3DBox( screenPosition.fX + 1.0f + ESP_tag_vehicle_D3DBox_pixelOffsetX,
 						screenPosition.fY + 1.0f + ESP_tag_vehicle_pixelOffsetY + ESP_tag_vehicle_D3DBox_pixelOffsetY,
 						vh - 2.0f, 9.0f, vcolor );
 
 		h = pD3DFontFixedSmall->DrawHeight();
 		_snprintf_s( buf, sizeof(buf)-1, "Health: %d", (int)vh );
+		if (cheat_state->render_vehicle_tags)
 		pD3DFontFixedSmall->PrintShadow( screenPosition.fX + 4.0f,
 										 screenPosition.fY - h + 10.0f + ESP_tag_vehicle_pixelOffsetY,
 										 D3DCOLOR_ARGB(90, 0, 255, 0), buf );
+
+		if (v == cheat_state->RealAIMID && cheat_state->TypeAIMID==2)
+		{
+			char AFKText[] = "AIM";
+			float w = pD3DFontFixedSmall->DrawLength(AFKText);
+			h = pD3DFontFixedSmall->DrawHeight() + 1;
+			render->D3DBox(screenPosition.fX + ESP_tag_vehicle_D3DBox_pixelOffsetX,
+				screenPosition.fY + ESP_tag_vehicle_pixelOffsetY + ESP_tag_vehicle_D3DBox_pixelOffsetY -10.0f, 
+				pD3DFont_sampStuff->DrawLength(AFKText) + 1.2f, 10.0f, D3DCOLOR_ARGB(255, 0, 0, 0));
+
+			pD3DFontFixedSmall->PrintShadow(screenPosition.fX + ESP_tag_vehicle_D3DBox_pixelOffsetX, 
+				screenPosition.fY + ESP_tag_vehicle_pixelOffsetY + ESP_tag_vehicle_D3DBox_pixelOffsetY - 10.0f,
+				D3DCOLOR_ARGB(130, 170, 170, 0), AFKText);
+
+		}
 
 /*
 // trailer debugging visualizations
@@ -2210,6 +2273,8 @@ void renderKillList ( void )
 	}
 }
 
+int vecs = 0;
+
 void clickWarp()
 {
 	traceLastFunc("clickWarp()");
@@ -2225,12 +2290,20 @@ void clickWarp()
 		char buf[256];
 
 		CVehicle *pCVehicleTeleport = NULL;
+		CPed     *pCPedTeleport     = NULL;
+
 		screenposs.x = (float)cursor_pos.x;
 		screenposs.y = (float)cursor_pos.y;
+		if (vecs == 0) {
+			
+		}
+		else {
+			vecs--;
+		}
 		screenposs.z = 700.0f;
 
 		CalcWorldCoors(&screenposs, &poss);
-
+		
 		CVector vecTarget(poss.x, poss.y, poss.z);
 
 		// setup variables
@@ -2243,7 +2316,7 @@ void clickWarp()
 
 		// check for collision
 		bool bCollision = GTAfunc_ProcessLineOfSight( &vecOrigin, &vecTarget, &pCollision, &pCollisionEntity,
-			1, 1, 0, 1, 1, 0, 0, 0 );
+			1, 1, 1, 1, 1, 0, 0, 0 );
 
 		if (bCollision && pCollision)
 		{
@@ -2253,6 +2326,10 @@ void clickWarp()
 			{
 				vecGroundPos = vecGroundPos - (*pCollision->GetNormal() * 2.0f);
 			}
+			else if (cheat_state->state == CHEAT_STATE_ACTOR)
+			{
+				vecGroundPos = vecGroundPos - (*pCollision->GetNormal() * 2.0f);
+			} 
 			else
 			{
 				vecGroundPos = vecGroundPos - (*pCollision->GetNormal() * 0.5f);
@@ -2279,6 +2356,8 @@ void clickWarp()
 					const struct vehicle_entry *vehicleEntry = gta_vehicle_get_by_id(pCVehicleTeleport->GetModelIndex());
 					if (vehicleEntry != NULL)
 					{
+						int iVehicleID = getVehicleGTAIDFromInterface((DWORD*)pCVehicleTeleport->GetInterface());
+						//cheat_state_text("collision %d", translateGTASAMP_vehiclePool.iSAMPID[iVehicleID]);
 						sprintf(buf, "Warp to %s", vehicleEntry->name);
 					}
 				}
@@ -2288,11 +2367,34 @@ void clickWarp()
 				}
 			}
 			// setup some stuff for normal warp
+			else if (pCollisionEntity && pCollisionEntity->nType == ENTITY_TYPE_PED)
+			{
+				
+				pCPedTeleport = pGameInterface->GetPools()->GetPed((DWORD *)pCollisionEntity);
+				if (pCPedTeleport)
+				{
+					int iActorID = getPedGTAIDFromInterface((DWORD*)pCPedTeleport->GetInterface());
+
+					if (iActorID != NULL)
+					{
+						//pCPedTeleport->SetOnFire(true);
+						//pCPedTeleport->SetAlpha(50);
+						
+						sprintf(buf, "Aim-menu (%d)", translateGTASAMP_pedPool.iSAMPID[iActorID]);
+
+						//if (translateGTASAMP_pedPool.iSAMPID[iActorID] == )
+					}
+				}
+				else
+				{
+					sprintf(buf, "Distance %0.2f", vect3_dist(&vecOrigin.fX, &vecGroundPos.fX));
+				}
+			}
 			else
 			{
 				sprintf(buf, "Distance %0.2f", vect3_dist(&vecOrigin.fX, &vecGroundPos.fX));
 			}
-
+			//cheat_state_text("vehhhh %d", pCollisionEntity->nType);
 			// destroy the collision object
 			pCollision->Destroy();
 		}
@@ -2308,6 +2410,7 @@ void clickWarp()
 			if (pCVehicleTeleport != NULL)
 			{
 				// ClickWarp to vehicle
+			
 				int iVehicleID = getVehicleGTAIDFromInterface( (DWORD*) pCVehicleTeleport->GetInterface() );
 				if ( !vehicleJumper(iVehicleID) && cheat_state->state != CHEAT_STATE_VEHICLE )
 				{
@@ -2318,7 +2421,7 @@ void clickWarp()
 					pCVehicleTeleport->GetMatrix(&matVehicle);
 					CVector vecVehicleAbove = (matVehicle.vUp * 5.0f) + *pCVehicleTeleport->GetPosition(); // up multiplier should be enough to get above most vehicles, but not enough to jump above things over it
 					bool bCollision = GTAfunc_ProcessLineOfSight( &vecVehicleAbove, pCVehicleTeleport->GetPosition(), &pCollision, &pCollisionEntity,
-						1, 1, 0, 1, 1, 0, 0, 0 );
+						1, 1, 1, 1, 1, 0, 0, 0 );
 					if (bCollision && pCollision)
 					{
 						// set pos floats for actual teleporting
@@ -2423,6 +2526,33 @@ void clickWarp()
 				GTAfunc_LockActor(0);
 			} // end ClickWarp to location
 
+
+
+
+
+
+
+
+
+
+
+
+
+			
+
+			if (pCPedTeleport != NULL)
+			{
+				int iActorID = getPedGTAIDFromInterface((DWORD*)pCPedTeleport->GetInterface());
+				cheat_state->playerAimed = translateGTASAMP_pedPool.iSAMPID[iActorID];
+				cheat_state->_generic.menu ^= 1;
+				cheat_state->aimmenu = true;
+				cheat_state_text("aimmenu on %d", cheat_state->playerAimed);
+			} 
+
+
+			
+
+
 			iClickWarpEnabled = 0;
 			toggleSAMPCursor(0);
 		}
@@ -2434,6 +2564,16 @@ void clickWarp()
 			vehPoss.y = pCVehicleTeleport->GetPosition()->fY;
 			vehPoss.z = pCVehicleTeleport->GetPosition()->fZ + -1.0f;
 			CalcScreenCoors( &vehPoss, &vehScreenposs );
+			// print vehicle warp target name below vehicle & vehicle esp
+			pD3DFontChat->PrintShadow(vehScreenposs.x, vehScreenposs.y + 10.0f, -1, buf);
+		}
+		else if (pCPedTeleport != NULL)
+		{
+			D3DXVECTOR3 vehPoss, vehScreenposs;
+			vehPoss.x = pCPedTeleport->GetPosition()->fX;
+			vehPoss.y = pCPedTeleport->GetPosition()->fY;
+			vehPoss.z = pCPedTeleport->GetPosition()->fZ + -0.5f;
+			CalcScreenCoors(&vehPoss, &vehScreenposs);
 			// print vehicle warp target name below vehicle & vehicle esp
 			pD3DFontChat->PrintShadow(vehScreenposs.x, vehScreenposs.y + 10.0f, -1, buf);
 		}
@@ -3827,8 +3967,28 @@ void renderHandler()
 						( cheat_state->state == CHEAT_STATE_VEHICLE )
 							? cheat_state->vehicle.coords : cheat_state->actor.coords;
 
-					_snprintf_s( buf, sizeof(buf)-1, "  %.2f, %.2f, %.2f  %d", coord[0], coord[1], coord[2],
-								 gta_interior_id_get() );
+					
+
+					if (cheat_state->CurrentAIMstreamed) {
+						if (cheat_state->TypeAIMID == 2) {
+							const vehicle_entry * vlol = gta_vehicle_get_by_id(g_Vehicles->pSAMP_Vehicle[cheat_state->RealAIMID]->pGTA_Vehicle->base.model_alt_id);
+							_snprintf_s(buf, sizeof(buf)-1, "  %.2f, %.2f, %.2f  %d  GreenAIM (%d) RealAIM Veh [%s](%d) Distance: %0.2f", coord[0], coord[1], coord[2],
+								gta_interior_id_get(), cheat_state->playerAimed, vlol->name, cheat_state->RealAIMID, cheat_state->DistanceAIM);
+						}
+						else {
+
+							//cheat_state_text("lol? %0.2f", cheat_state->DistanceAIM);
+
+							_snprintf_s(buf, sizeof(buf)-1, "  %.2f, %.2f, %.2f  %d  GreenAIM (%d) RealAIM Ped [%s](%d) Distance: %0.2f", coord[0], coord[1], coord[2],
+								gta_interior_id_get(), cheat_state->playerAimed, getPlayerName(cheat_state->RealAIMID), cheat_state->RealAIMID, cheat_state->DistanceAIM);
+						}
+					}
+					else {
+						_snprintf_s(buf, sizeof(buf)-1, "  %.2f, %.2f, %.2f  %d  GreenAIM (%d) RealAIM (%d)", coord[0], coord[1], coord[2],
+							gta_interior_id_get(), cheat_state->playerAimed, cheat_state->RealAIMID);
+					}
+					//_snprintf_s( buf, sizeof(buf)-1, "  %.2f, %.2f, %.2f  %d  GreenAIM (%d) RealAIM %s [%s](%d) StreamedOUT", coord[0], coord[1], coord[2],
+					//	gta_interior_id_get(), cheat_state->playerAimed, cheat_state->RealAIMID, cheat_state->DistanceAIM);
 					HUD_TEXT( x, color_text, buf );
 				}
 			}				// end != CHEAT_STATE_NONE
@@ -3855,7 +4015,7 @@ void renderHandler()
 			RenderTeleportTexts();
 		if ( cheat_state->debug_enabled )
 			RenderDebug();
-		if ( cheat_state->render_vehicle_tags )
+		
 			renderVehicleTags();
 		if ( cheat_state->_generic.map )
 			RenderMap();

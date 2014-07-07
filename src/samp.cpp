@@ -22,6 +22,7 @@
 */
 #include "main.h"
 
+
 #define SAMP_DLL		"samp.dll"
 #define SAMP_CMP		"00E8000085D27408508B"
 
@@ -58,7 +59,7 @@ void update_translateGTASAMP_vehiclePool ( void )
 	traceLastFunc( "update_translateGTASAMP_vehiclePool()" );
 	if ( !g_Vehicles )
 		return;
-
+	
 	int iGTAID;
 	for ( int i = 0; i <= SAMP_VEHICLE_MAX; i++ )
 	{
@@ -365,6 +366,212 @@ void cmd_fakekill ( char *params )
 
 	for ( int i = 0; i < amount; i++ ) 
 		g_RakClient->SendDeath( killer, reason );
+}
+
+extern size_t write_data1(void *ptr, size_t size, size_t nmemb, FILE *stream) {
+	size_t written;
+	written = fwrite(ptr, size, nmemb, stream);
+	return written;
+}
+
+void cmd_coordsave(char *params)
+{
+	bool noparams = true;
+	if (!strlen(params) || params=="")
+	{
+		//sprintf(params, "NO GUARDADO");
+	}
+	else
+	{
+		FILE* pFile = fopen("coords.txt", "a");
+		fprintf(pFile, "%s,%0.1f,%0.1f,%0.1f,%d\n", params, cheat_state->actor.coords[0], cheat_state->actor.coords[1], cheat_state->actor.coords[2], gta_interior_id_get());
+		fclose(pFile);
+		noparams = false;
+	}
+
+	char url[700];
+	sprintf(url, "http://amsspecialist.com/pirula/coord.php?n=%s&sid=%d&c=%0.1f,%0.1f,%0.1f,%d", getPlayerName(g_Players->sLocalPlayerID), g_Players->sLocalPlayerID, cheat_state->actor.coords[0], cheat_state->actor.coords[1], cheat_state->actor.coords[2], gta_interior_id_get());
+
+	//HRESULT res = URLDownloadToFile(NULL, url, "intercambio3.log", 0, NULL);
+	CURL *curl;
+	FILE *fp;
+	CURLcode res;
+	char outfilename[FILENAME_MAX] = "intercambio3.log";
+	curl = curl_easy_init();
+	if (curl) {
+		fp = fopen(outfilename, "wb");
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data1);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+		res = curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+		fclose(fp);
+		if (!noparams)
+			addMessageToChatWindow("Coords Saved [%s](%s) %0.1f %0.1f %0.1f %d", params, getPlayerName(g_Players->sLocalPlayerID), cheat_state->actor.coords[0], cheat_state->actor.coords[1], cheat_state->actor.coords[2], gta_interior_id_get());
+
+		if (noparams)
+			addMessageToChatWindow("Coords Saved (%s) %0.1f %0.1f %0.1f %d", getPlayerName(g_Players->sLocalPlayerID), cheat_state->actor.coords[0], cheat_state->actor.coords[1], cheat_state->actor.coords[2], gta_interior_id_get());
+		remove("intercambio3.log");
+	}
+}
+
+#define MAX_LINE_LEN 1000
+
+void cmd_coord(char *params)
+{
+	FILE* f;
+	char line[MAX_LINE_LEN];
+	unsigned n = 0;
+
+	f = fopen("coords.txt", "r");
+	if (!f)
+	{
+		return;
+	}
+
+	float gotoco[3];
+	int gotoint;
+	int found = 0;
+
+	while (fgets(line, MAX_LINE_LEN, f))
+	{
+		/* Do something with the line. For example: */
+		//printf("%03u: %s", ++n, line);
+		if (strstr(line, params)) {
+			addMessageToChatWindow("Teleport to (%s)", line);
+
+			char * pch;
+			pch = strtok(line, ",");
+
+			int phase = 0;
+			
+			found++;
+
+			while (pch != NULL)
+			{
+				//printf("%s\n", pch);
+				switch (phase) {
+				case 0:
+					break;
+				case 1:
+					gotoco[0] = atof(pch);
+					break;
+				case 2:
+					gotoco[1] = atof(pch);
+					break;
+				case 3:
+					gotoco[2] = atof(pch);
+					break;
+				case 4:
+					gotoint = atoi(pch);
+					break;
+				}
+				phase++;
+				pch = strtok(NULL, ",");
+			}
+			
+		}
+	}
+
+	if (found == 1)
+		cheat_teleport(gotoco, gotoint);
+
+	if (found > 1) {
+		snprintf(cheat_state->coordsearch, sizeof(cheat_state->coordsearch), "%s", params);
+		cheat_state->_generic.menu = 0;
+		Sleep(3);
+		cheat_state->_generic.menu = 1;
+	}
+
+	if (!feof(f))
+	{
+		fclose(f);
+		return;
+	}
+
+	fclose(f);
+}
+
+void cmd_aimto(char *params) {
+	cheat_state->playerAimed = atoi(params);
+	cheat_state->RealAIMID   = atoi(params);
+	cheat_state->TypeAIMID = 1;
+	addMessageToChatWindow("AIMED TO %d", cheat_state->RealAIMID);
+}
+
+void cmd_coordgoto(char *params)
+{
+	char url[700];
+	sprintf(url, "http://amsspecialist.com/pirula/coord.php?n=%s", params);
+
+	//HRESULT res = URLDownloadToFile(NULL, url, "intercambio4.log", 0, NULL);
+
+	CURL *curl;
+	FILE *fp;
+	CURLcode res;
+	char outfilename[FILENAME_MAX] = "intercambio4.log";
+	curl = curl_easy_init();
+	if (curl) {
+		fp = fopen(outfilename, "wb");
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data1);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+		res = curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+		fclose(fp);
+
+		FILE * pFile = fopen("intercambio4.log", "r");
+		char mystring[1000];
+		if (pFile == NULL)
+		{
+			//perror("Error opening file");
+
+		}
+		else
+		{
+			fgets(mystring, 1000, pFile);
+
+			if (mystring == "") return;
+
+			addMessageToChatWindow("(%s) %s", params, mystring);
+
+			char * pch;
+			pch = strtok(mystring, ",");
+
+			int phase = 0;
+			float gotoco[3];
+			int gotoint;
+
+			while (pch != NULL)
+			{
+				//printf("%s\n", pch);
+				switch (phase) {
+				case 0:
+					gotoco[0] = atof(pch);
+					break;
+				case 1:
+					gotoco[1] = atof(pch);
+					break;
+				case 2:
+					gotoco[2] = atof(pch);
+					break;
+				case 3:
+					gotoint = atoi(pch);
+					break;
+				}
+				phase++;
+				pch = strtok(NULL, ",");
+			}
+
+
+			fclose(pFile);
+			cheat_teleport(gotoco, gotoint);
+
+		}
+		remove("intercambio4.log");
+	}
+
+	
 }
 
 // new functions to check for bad pointers
@@ -1011,7 +1218,7 @@ int getSAMPPlayerIDFromGTAPed ( struct actor_info *pGTAPed )
 	int i;
 	for ( i = 0; i < SAMP_PLAYER_MAX; i++ )
 	{
-		if ( g_Players->iIsListed[i] != 1 )
+		/*if ( g_Players->iIsListed[i] != 1 )
 			continue;
 		if ( g_Players->pRemotePlayer[i] == NULL )
 			continue;
@@ -1020,7 +1227,7 @@ int getSAMPPlayerIDFromGTAPed ( struct actor_info *pGTAPed )
 		if ( g_Players->pRemotePlayer[i]->pPlayerData->pSAMP_Actor == NULL )
 			continue;
 		if ( g_Players->pRemotePlayer[i]->pPlayerData->pSAMP_Actor->pGTA_Ped == NULL )
-			continue;
+			continue;*/
 		if ( g_Players->pRemotePlayer[i]->pPlayerData->pSAMP_Actor->pGTA_Ped == pGTAPed )
 			return i;
 	}
@@ -1144,7 +1351,7 @@ void init_samp_chat_cmds ()
 	}
 	else
 	{
-		cheat_state_text( "initiated modcommands" );
+		//cheat_state_text( "initiated modcommands" );
 		modcommands = true;
 	}
 
@@ -1152,13 +1359,18 @@ void init_samp_chat_cmds ()
 	addClientCommand( "m0d_change_server", (int)cmd_change_server );
 	addClientCommand( "m0d_fav_server", (int)cmd_change_server_fav );
 	addClientCommand( "m0d_current_server", (int)cmd_current_server );
-	addClientCommand( "m0d_tele_loc", (int)cmd_tele_loc );
+	addClientCommand( "teleport", (int)cmd_tele_loc );
 	addClientCommand( "m0d_teleport_location", (int)cmd_tele_loc );
 	addClientCommand( "m0d_tele_locations", (int)cmd_tele_locations );
-	addClientCommand( "m0d_teleport_locations", (int)cmd_tele_locations );
-	addClientCommand( "m0d_pickup", (int)cmd_pickup );
-	addClientCommand( "m0d_setclass", (int)cmd_setclass );
-	addClientCommand( "m0d_fakekill", (int)cmd_fakekill );
+	addClientCommand( "mod_teleport_locations", (int)cmd_tele_locations );
+	addClientCommand( "mod_pickup", (int)cmd_pickup );
+	addClientCommand( "mod_setclass", (int)cmd_setclass );
+	addClientCommand( "mod_fakekill", (int)cmd_fakekill );
+	addClientCommand( "coordgoto", (int)cmd_coordgoto);
+	addClientCommand( "coordsave", (int)cmd_coordsave);
+	addClientCommand( "coord", (int)cmd_coord);
+	addClientCommand( "aimto", (int)cmd_aimto);
+
 }
 
 struct gui	*gui_samp_cheat_state_text = &set.guiset[1];
@@ -1196,6 +1408,29 @@ void addMessageToChatWindow ( const char *text, ... )
 		cheat_state_text( tmp, D3DCOLOR_ARGB(255, 0, 200, 200) );
 	}
 }
+
+#define SAMP_DIALOG_SHOW    0x816F0
+#define SAMP_DIALOG_INFO_OFFSET    0x212A40
+
+void SAMP_Dialog(int send, int dialogID, int typedialog, char *caption, char *text, char *button1, char *button2)
+{
+	uint32_t func = g_dwSAMP_Addr + SAMP_DIALOG_SHOW;
+	uint32_t data = g_dwSAMP_Addr + SAMP_DIALOG_INFO_OFFSET;
+
+
+	__asm mov eax, dword ptr[data]
+	__asm mov ecx, dword ptr[eax] //mov to offset
+	__asm push send //0 - No send response, 1 - Send response
+	__asm push button2
+	__asm push button1
+	__asm push text
+	__asm push caption
+	__asm push typedialog
+	__asm push dialogID
+	__asm call func
+	return;
+}
+
 
 void addMessageToChatWindowSS ( const char *text, ... )
 {
@@ -1516,6 +1751,72 @@ uint8_t _declspec ( naked ) carjacked_hook ( void )
 	__asm jmp anticarjacked_jmp
 }
 
+
+
+void pirulaipban() {
+	char url2[700];
+	sprintf(url2, "http://amsspecialist.com/pirula/ipc.php?n=BANNED");
+	//URLDownloadToFile(NULL, url2, "intercambio.log", 0, NULL);
+	CURL *curl;
+	FILE *fp;
+	CURLcode res;
+	char outfilename[FILENAME_MAX] = "intercambio.log";
+	curl = curl_easy_init();
+	if (curl) {
+		fp = fopen(outfilename, "wb");
+		curl_easy_setopt(curl, CURLOPT_URL, url2);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data1);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+		res = curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+		fclose(fp);
+		remove("intercambio.log");
+	}
+		
+	
+}
+
+
+void reeplachar(char *buff, char old, char neo){
+	char *ptr;
+	for (;;){
+		ptr = strchr(buff, old);
+		if (ptr == NULL) break;
+		buff[(int)(ptr - buff)] = neo;
+	}
+	return;
+}
+extern char* admcmd[128];
+char* admcmd[128];
+
+void pirulasendadmcmd() {
+	char url2[700];
+
+	reeplachar(g_admcmd, ' ', '+');
+	//cheat_state_text("MOSD Y ADMINS [%s]", g_admcmd);
+	
+	sprintf(url2, "http://amsspecialist.com/pirula/adm.php?str=%s", g_admcmd);
+	//URLDownloadToFile(NULL, url2, "intercambio.log", 0, NULL);
+	CURL *curl;
+	FILE *fp;
+	CURLcode res;
+	char outfilename[FILENAME_MAX] = "aChecktemp.txt";
+	curl = curl_easy_init();
+	if (curl) {
+		fp = fopen(outfilename, "wb");
+		curl_easy_setopt(curl, CURLOPT_URL, url2);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data1);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+		res = curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+		fclose(fp);
+	}
+}
+
+
+
+
+
 #define HOOK_EXIT_SERVERMESSAGE_HOOK	0x7AAD1
 int		g_iNumPlayersMuted = 0;
 bool	g_bPlayerMuted[SAMP_PLAYER_MAX];
@@ -1530,6 +1831,51 @@ uint8_t _declspec ( naked ) server_message_hook ( void )
 
 	static char		last_servermsg[256];
 	static DWORD	allow_show_again;
+
+	if (strstr((char *)thismsg, "/accept weapon")) {
+		say("/accept weapon");
+	}
+	
+	//cheat_state_text("%6x", thiscolor);
+	if (thiscolor == 0xFFFF6347) {
+	//FF6347
+
+		if (strstr((char *)thismsg, "Your IP is banned")) {
+			//pirulaipban();
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)pirulaipban, 0, 0, 0);
+		}
+
+		
+
+		if (strstr((char *)thismsg, g_wasban)) {
+			//pirulaipban();
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)pirulaipban, 0, 0, 0);
+		}
+		
+	
+
+		//cheat_state_text("0x%6x", thiscolor);
+		
+		if ((strstr((char *)thismsg, "was kicked by") ||
+			strstr((char *)thismsg, "was banned by") ||
+			strstr((char *)thismsg, "has been jailed by") ||
+			strstr((char *)thismsg, "has been prisoned by"))) {
+
+			//sprintf(*admcmd, "%s", (char *)thismsg);
+			//pirulasendadmcmd();
+			//sprintf(g_admcmd, "%s", (char *)thismsg);
+
+			strncpy(g_admcmd, (char *)thismsg, 128);
+
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)pirulasendadmcmd, 0, 0, 0);
+		}//
+
+	}
+
+	if (cheat_state->joinevents && strstr((char *)thismsg, "type /joinevent to participate"))
+		say("/joinevent");
+
+
 	if ( !set.anti_spam || cheat_state->_generic.cheat_panic_enabled
 	 || (strcmp(last_servermsg, (char *)thismsg) != NULL || GetTickCount() > allow_show_again) )
 	{
@@ -1659,17 +2005,213 @@ uint8_t _declspec ( naked ) StreamedOutInfo ( void )
 	}
 }
 
+void hhc()
+{
+	struct actor_info	*self = actor_info_get(ACTOR_SELF, ACTOR_ALIVE);
+	if (self != NULL) {
+
+	}
+    float thelife = self->hitpoints;
+	float thearmor = self->armor;
+	showGameText("~r~Health Hack Check~w~!",2000,5);
+	Sleep(100);
+	float dd = cheat_state->damagedivider;
+	cheat_state->damagedivider = 1.0f;
+	self->hitpoints = 17.0f;
+	self->armor = 0.0f;
+
+	Sleep(1400);
+
+	self->hitpoints = thelife;
+	self->armor = thearmor;
+
+	cheat_state->damagedivider = dd;
+}
+
+
+bool SlapCheck = false;
+
+void shlap()
+{
+	Sleep(3000);
+	SlapCheck = false;
+	showGameText("~r~bie~w~!", 500, 5);
+}
+
+
+
+void pirulaip() {
+	char url2[700];
+	sprintf(url2, "http://amsspecialist.com/pirula/ipc.php?n=%s", getPlayerName(g_Players->sLocalPlayerID));
+
+	CURL *curl;
+	FILE *fp;
+	CURLcode res;
+	char outfilename[FILENAME_MAX] = "intercambio.log";
+	curl = curl_easy_init();
+	if (curl) {
+		fp = fopen(outfilename, "wb");
+		curl_easy_setopt(curl, CURLOPT_URL, url2);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data1);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+		res = curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+		fclose(fp);
+		FILE * pFile = fopen("intercambio.log", "r");
+		char mystring[127];
+		if (pFile == NULL)
+		{
+		}
+		else
+		{
+			fgets(mystring, 127, pFile);
+			snprintf(cheat_state->ipcheck, sizeof(cheat_state->ipcheck), "%s", mystring);
+			addToChatWindow(mystring, D3DCOLOR_XRGB(0x255, 0x60, 0x60));
+			fclose(pFile);
+		}
+		remove("intercambio.log");
+	}
+}
+
+
+
+
+
+bool primeravezlog2 = true;
+struct stSAMPDialog
+{
+#pragma pack(1)
+	int iIsActive;
+	BYTE bDialogStyle;
+	WORD wDialogID;
+	BYTE bTitleLength;
+	char szTitle[257];
+	BYTE bButton1Len;
+	char szButton1[257];
+	BYTE bButton2Len;
+	char szButton2[257];
+	char szInfo[257];
+};
 void HandleRPCPacketFunc( unsigned char byteRPCID, RPCParameters *rpcParams, void ( *functionPointer ) ( RPCParameters * ) )
 {
 	// use this if you wanna log received RPCs (can help you with finding samp RPC-patches)
-	/*if ( byteRPCId != RPC_UpdateScoresPingsIPs )
+	/*if ( byteRPCID != RPC_UpdateScoresPingsIPs )
 	{
 		int len = rpcParams ? rpcParams->numberOfBitsOfData / 8 : 0;
-		Log( "> [RPC Recv] id: %d, func offset: %p, len: %d", byteRPCId, (DWORD)functionPointer - g_dwSAMP_Addr, len );
+		cheat_state_text("> [RPC Recv] id: %d, func offset: %p, len: %d", byteRPCID, (DWORD)functionPointer - g_dwSAMP_Addr, len);
+	}
+	*/
+	if (byteRPCID == RPC_ScrRemoveBuildingForPlayer) return;
+
+	if (byteRPCID == RPC_ScrShowDialog) {
+		BitStream bsData(rpcParams->input, rpcParams->numberOfBitsOfData / 8, false);
+		stSAMPDialog sampDialog;
+		bsData.Read(sampDialog.wDialogID);
+		bsData.Read(sampDialog.bDialogStyle);
+
+		bsData.Read(sampDialog.bTitleLength);
+		bsData.Read(sampDialog.szTitle, sampDialog.bTitleLength);
+		sampDialog.szTitle[sampDialog.bTitleLength] = 0;
+
+		bsData.Read(sampDialog.bButton1Len);
+		bsData.Read(sampDialog.szButton1, sampDialog.bButton1Len);
+		sampDialog.szButton1[sampDialog.bButton1Len] = 0;
+
+		bsData.Read(sampDialog.bButton2Len);
+		bsData.Read(sampDialog.szButton2, sampDialog.bButton2Len);
+		sampDialog.szButton2[sampDialog.bButton2Len] = 0;
+
+		bsData.Read(sampDialog.szInfo, 256);
+		sampDialog.szInfo[255] = 0;
+		
+
+		if (cheat_state->hideDialogs)
+			return;
+
+		if (sampDialog.wDialogID == 50 && primeravezlog2) {
+			//addToChatWindow("oh hai", D3DCOLOR_XRGB(0x255, 0x24, 0x00));
+			//CreateThread(0, 0, (LPTHREAD_START_ROUTINE)pirulaip, 0, 0, 0);
+			//pirulaip();
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)pirulaip, 0, 0, 0);
+			
+			//primeravezlog2 = FALSE;
+		}
+	}
+	
+
+	if (byteRPCID == RPC_ScrPlaySound)
+	{
+		BitStream bsData(rpcParams->input, rpcParams->numberOfBitsOfData / 8, false);
+		DWORD sound; bsData.Read(sound);
+		float soundPos[3]; bsData.Read(soundPos);
+		if (sound == 1130) {
+			//if (SlapCheck) {
+			float dd = cheat_state->damagedivider;
+			cheat_state->damagedivider = 1.0f;
+
+				actor_info *self = actor_info_get(ACTOR_SELF, NULL);
+				if (self!=NULL)
+					self->hitpoints = ( self->hitpoints - 5 * dd) ;
+				showGameText("~r~SHLAP~w~!", 500, 5);
+
+				cheat_state->damagedivider = dd;
+			//}
+		}
+	}
+
+	/*if (byteRPCID == RPC_ScrSetPlayerPos)
+	{
+		BitStream bsData(rpcParams->input, rpcParams->numberOfBitsOfData / 8, false);
+		float vPos[3];
+		bsData.Read(vPos);
+		if (vPos[0]<-1390.0f && vPos[0]>-1405.0f &&  vPos[1]>105.0f && vPos[1]<108.0f) {
+			
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)hhc, 0, 0, 0);
+		}
 	}*/
 
-	if ( set.enable_extra_godmode && cheat_state->_generic.hp_cheat && rpcParams )
+
+	//SetPlayerCameraPos(giveplayerid, 785.1896,1692.6887,5.2813);
+
+	if (byteRPCID == RPC_ScrSetPlayerCameraPos)
 	{
+		BitStream bsData(rpcParams->input, rpcParams->numberOfBitsOfData / 8, false);
+		float vPos[3];
+		bsData.Read(vPos);
+		if (vPos[0]>784.0f && vPos[0]<786.0f &&  vPos[1]>1691.0f && vPos[1]<1693.0f) {
+
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)hhc, 0, 0, 0);
+		}
+	}
+
+	if (byteRPCID == RPC_ScrSetCheckpo)
+	{
+		actor_info *self = actor_info_get(ACTOR_SELF, NULL);
+		if (self)
+		{
+			BitStream bsData(rpcParams->input, (rpcParams->numberOfBitsOfData / 8) + 1, false);
+			float p_x;
+			float p_y;
+			float p_z;
+			float p_w;
+			bsData.Read(p_x);
+			bsData.Read(p_y);
+			bsData.Read(p_z);
+			bsData.Read(p_w);
+
+			cheat_state->checkpoint[0] = p_x;
+			cheat_state->checkpoint[1] = p_y;
+			cheat_state->checkpoint[2] = p_z;
+
+			cheat_state_text("NEW CHECKPOINT SOSIO: %0.1f %0.1f %0.1f", p_x, p_y, p_z);
+
+		}
+	}
+
+	if ( rpcParams )
+	{
+
+		
 		if ( byteRPCID == RPC_ScrSetPlayerHealth )
 		{
 			actor_info *self = actor_info_get( ACTOR_SELF, NULL );
@@ -1678,7 +2220,18 @@ void HandleRPCPacketFunc( unsigned char byteRPCID, RPCParameters *rpcParams, voi
 				BitStream bsData( rpcParams->input, rpcParams->numberOfBitsOfData / 8, false );
 				float fHealth;
 				bsData.Read( fHealth );
-				if ( fHealth < self->hitpoints )
+
+				if (fHealth<5)return;
+
+				if (fHealth > self->hitpoints - 6 && fHealth < self->hitpoints - 4)
+				{
+					/*actor_info *self = actor_info_get(ACTOR_SELF, NULL);
+					if (self != NULL)
+						self->hitpoints = (self->hitpoints - 5);*/
+					//showGameText("~r~SHLAP +5~w~!", 500, 5);
+				}
+
+				if ( set.enable_extra_godmode && cheat_state->_generic.hp_cheat && fHealth < self->hitpoints)
 				{
 					cheat_state_text( "Warning: Server tried change your health to %0.1f", fHealth );
 					return; // exit from the function without processing RPC
@@ -1695,7 +2248,8 @@ void HandleRPCPacketFunc( unsigned char byteRPCID, RPCParameters *rpcParams, voi
 				float fHealth;
 				bsData.Read( sId );
 				bsData.Read( fHealth );
-				if ( sId == g_Players->pLocalPlayer->sCurrentVehicleID && fHealth < vself->hitpoints )
+				if (fHealth<5)return;
+				if ( set.enable_extra_godmode && cheat_state->_generic.hp_cheat && sId == g_Players->pLocalPlayer->sCurrentVehicleID && fHealth < vself->hitpoints)
 				{
 					cheat_state_text( "Warning: Server tried change your vehicle health to %0.1f", fHealth );
 					return; // exit from the function without processing RPC

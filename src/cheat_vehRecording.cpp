@@ -23,10 +23,9 @@
 
 #include "main.h"
 
-#ifdef __CHEAT_VEHRECORDING_H__
 
 #define REC_DB_NAME		"mod_sa_routes.db"
-#define REC_ARRAYSIZE	4096
+#define REC_ARRAYSIZE	9096
 #define REC_DEFAULT_WAITTIME	25
 float rec_angle[REC_ARRAYSIZE][6];
 float rec_spin[REC_ARRAYSIZE][3];
@@ -743,4 +742,3 @@ void cheat_handle_vehicle_recording ( struct vehicle_info *info, float time_diff
 		rec_state = RECORDING_OFF;
 	}
 }
-#endif

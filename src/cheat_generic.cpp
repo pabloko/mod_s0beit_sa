@@ -44,7 +44,7 @@ int cheat_panic ( void )
 		pstate_deathlist = 0, // deathlist
 		pstate_extragm = 0; // extra godmode
 
-	if ( KEY_PRESSED(set.key_panic) )
+	if ( KEY_PRESSED(set.key_panic) || cheat_state->Panic)
 	{
 		// toggle panic
 		cheat_state->_generic.cheat_panic_enabled ^= 1;
@@ -1052,6 +1052,7 @@ void cheat_handle_checkpoint ( void )
 
 			if ( vehicle_info != NULL )
 				vehicle_prevent_below_height( vehicle_info, set.checkpoint_min_height );
+			
 		}
 		else
 		{
@@ -1066,6 +1067,8 @@ void cheat_handle_unfreeze ( struct vehicle_info *vehicle_info, struct actor_inf
 
 	if ( KEY_PRESSED(set.key_anti_freeze) )
 	{
+		
+		
 		GTAfunc_TogglePlayerControllable(0);
 		GTAfunc_LockActor(0);
 		pGameInterface->GetCamera()->RestoreWithJumpCut();
@@ -1074,6 +1077,18 @@ void cheat_handle_unfreeze ( struct vehicle_info *vehicle_info, struct actor_inf
 		if ( actor_info != NULL && !actor_info->pedFlags.bInVehicle )
 			GTAfunc_DisembarkInstantly();
 	}
+
+	/*CVector vec;
+	vec.fX = actor_info->step_pos[0];
+	vec.fY = actor_info->step_pos[1];
+	vec.fZ = actor_info->step_pos[2];
+
+	//pGameInterface->GetFx()->TriggerGunshot(NULL, vec, vec, true);
+	pGameInterface->GetFx()->TriggerBulletSplash(vec);
+	/*
+	pGameInterface->GetWeaponInfo(WEAPONTYPE_SHOTGUN)->SetFiringSpeed(0.1);
+	pGameInterface->GetWeaponInfo(WEAPONTYPE_SHOTGUN)->SetAccuracy(0.0);
+	pGameInterface->GetWeaponInfo(WEAPONTYPE_SHOTGUN)->SetSpread(0.0);*/
 }
 
 void cheat_handle_emo ( struct vehicle_info *vehicle_info, struct actor_info *actor_info, float time_diff )

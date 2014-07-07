@@ -791,6 +791,7 @@ void gta_weapon_set ( struct actor_info *info, int slot, int id, int ammo, int a
 		info->weapon[slot].ammo = ammo;
 	if ( ammo_clip >= 0 )
 		info->weapon[slot].ammo_clip = ammo_clip;
+
 }
 
 int gta_weapon_ammo_set ( struct actor_info *info, int slot, int ammo )

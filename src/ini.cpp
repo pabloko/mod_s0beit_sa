@@ -416,7 +416,7 @@ static void ini_init ( void )
 	if ( (ent = ini_register_entry("key_nitro", TYPE_KEY)) != NULL )
 		ini_register_data( ent, &set.key_nitro, "np0" );
 
-#ifdef __CHEAT_VEHRECORDING_H__
+
 	/* (vehicle) recording mod */
 	if ( (ent = ini_register_entry("recording_activated", TYPE_BOOL)) != NULL )
 		ini_register_data( ent, &set.recording_activated, "false" );
@@ -436,7 +436,7 @@ static void ini_init ( void )
 		ini_register_data( ent, &set.key_recording_rev, "&0" );
 	if ( (ent = ini_register_entry("key_recording_rev_customSpeed", TYPE_KEY)) != NULL )
 		ini_register_data( ent, &set.key_recording_rev_customSpeed, "&0" );
-#endif
+
 
 	/* nitro mod */
 	if ( (ent = ini_register_entry("key_nitro_mod", TYPE_KEY)) != NULL )
